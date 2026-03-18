@@ -656,11 +656,21 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
             return
         }
 
-        // When sidebar is showing with multiple tasks, close the current task
-        // instead of closing the whole tab/window.
-        if sidebarIsShowing, sidebarTaskEntries.count > 1, let activeId = activeTaskId {
-            removeTask(id: activeId)
-            return
+        // When sidebar is showing, close hierarchically:
+        // horizontal tab → task → window.
+        if sidebarIsShowing, let activeId = activeTaskId,
+           let taskIndex = sidebarTaskEntries.firstIndex(where: { $0.id == activeId }) {
+            // If there are multiple horizontal tabs, close just the active tab.
+            if sidebarTaskEntries[taskIndex].tabs.count > 1 {
+                let tabId = sidebarTaskEntries[taskIndex].activeTabId
+                removeHorizontalTab(id: tabId)
+                return
+            }
+            // Single horizontal tab but multiple tasks: close the task.
+            if sidebarTaskEntries.count > 1 {
+                removeTask(id: activeId)
+                return
+            }
         }
 
         // More than 1 window means we have tabs and we're closing a tab
