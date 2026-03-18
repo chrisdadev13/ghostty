@@ -67,7 +67,8 @@ struct SidebarView: View {
                 .buttonStyle(.plain)
             }
             .padding(.horizontal, 12)
-            .padding(.vertical, 8)
+            .padding(.vertical, 3)
+            .frame(minHeight: 32)
 
             Divider()
                 .background(Color.white.opacity(0.1))

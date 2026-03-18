@@ -6931,7 +6931,7 @@ pub const Keybinds = struct {
             // New horizontal tab within the current sidebar task
             try self.set.putFlags(
                 alloc,
-                .{ .key = .{ .unicode = 't' }, .mods = .{ .super = true, .shift = true } },
+                .{ .key = .{ .unicode = 't' }, .mods = .{ .ctrl = true } },
                 .{ .new_sidebar_tab = {} },
                 .{ .performable = true },
             );
