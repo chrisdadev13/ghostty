@@ -1,0 +1,64 @@
+include/ghostty.h
+  88180ed3e1f19471 925
+macos/Ghostty.xcodeproj/project.pbxproj
+  88180ed3e1f19471 188
+macos/Sources/Ghostty/Ghostty.App.swift
+  88180ed3e1f19471 587-589,1041-1061,1187-1193
+src/Surface.zig
+  88180ed3e1f19471 5613-5618
+macos/Sources/Ghostty/GhosttyPackage.swift
+  88180ed3e1f19471 368
+macos/Sources/Features/Sidebar/SidebarTab.swift
+  bedd449e9d7e1761 65,72,81
+  88180ed3e1f19471 112-119
+macos/Sources/Features/Terminal/TerminalController.swift
+  88180ed3e1f19471 157-158,160-165,176-177,179-185,1489-1504
+macos/Sources/Features/Terminal/HorizontalTabBarView.swift
+  88180ed3e1f19471 1-104
+src/input/command.zig
+  88180ed3e1f19471 722
+macos/Sources/Features/Terminal/BaseTerminalController.swift
+  bedd449e9d7e1761 1783,1787,1825,1910-1911,1919-1920
+  88180ed3e1f19471 60-62,65-66,70-77,80-83,207-208,249-251,668-673,945-952,1529,1531,1543,1547-1548,1569-1570,1574-1575,1602-1603,1606,1629-1630,1633,1636,1645-1648,1651-1664,1666-1735,1741,1745,1747-1760
+src/config/Config.zig
+  88180ed3e1f19471 6899,6903
+src/apprt/action.zig
+  88180ed3e1f19471 349-351,420
+src/input/Binding.zig
+  88180ed3e1f19471 766-772,1378
+macos/Sources/Features/Terminal/TerminalView.swift
+  88180ed3e1f19471 57-68,109-117
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.15",
+  "base_commit_sha": "ed6d549aa3bfeabbae6a136bf69bb82def41e281",
+  "prompts": {
+    "88180ed3e1f19471": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8486bb25-430c-4b80-abfa-2eaf195a1aa9",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Chris <92900301+chrisdadev13@users.noreply.github.com>",
+      "messages": [],
+      "total_additions": 451,
+      "total_deletions": 79,
+      "accepted_lines": 392,
+      "overriden_lines": 0
+    },
+    "bedd449e9d7e1761": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ac67f0b9-22dc-4b7e-ba31-5fe6eb785852",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Chris <92900301+chrisdadev13@users.noreply.github.com>",
+      "messages": [],
+      "total_additions": 57,
+      "total_deletions": 54,
+      "accepted_lines": 16,
+      "overriden_lines": 0
+    }
+  }
+}
