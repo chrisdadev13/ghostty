@@ -193,11 +193,21 @@ class BaseTerminalController: NSWindowController,
         guard let ghostty_app = ghostty.app else { preconditionFailure("app must be loaded") }
 
         // Create the first sidebar task, injecting env vars for Claude Code hook integration.
-        let taskId = UUID()
+        let taskId: UUID
         let initialTree: SplitTree<Ghostty.SurfaceView>
         if let tree = tree {
             initialTree = tree
+            // For restored windows, reuse the task ID from the surface's saved env vars
+            // so the poll matches the status files the hooks write to.
+            if let firstSurface = tree.first,
+               let existingId = firstSurface.initialEnvironment["GHOSTTY_TASK_ID"],
+               let existingUUID = UUID(uuidString: existingId) {
+                taskId = existingUUID
+            } else {
+                taskId = UUID()
+            }
         } else {
+            taskId = UUID()
             var surfaceConfig = base ?? Ghostty.SurfaceConfiguration()
             surfaceConfig.environmentVariables["GHOSTTY_TASK_ID"] = taskId.uuidString
             surfaceConfig.environmentVariables["GHOSTTY_TASK_STATUS_DIR"] = Self.claudeStatusDir
@@ -213,9 +223,14 @@ class BaseTerminalController: NSWindowController,
 
         // Setup Claude Code integration
         Self.ensureClaudeHooks()
-        claudeStatusTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+        // Schedule on the main run loop in .common mode so the timer fires
+        // regardless of which thread init runs on (e.g. window restoration)
+        // and during all UI interaction modes.
+        let timer = Timer(timeInterval: 1.0, repeats: true) { [weak self] _ in
             self?.pollClaudeStatuses()
         }
+        RunLoop.main.add(timer, forMode: .common)
+        claudeStatusTimer = timer
 
         // Setup our notifications for behaviors
         let center = NotificationCenter.default
@@ -310,6 +325,7 @@ class BaseTerminalController: NSWindowController,
     }
 
     deinit {
+        claudeStatusTimer?.invalidate()
         NotificationCenter.default.removeObserver(self)
         undoManager?.removeAllActions(withTarget: self)
         if let eventMonitor {

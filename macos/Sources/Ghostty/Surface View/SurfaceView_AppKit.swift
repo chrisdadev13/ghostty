@@ -238,6 +238,10 @@ extension Ghostty {
         // Timer to remove progress report after 15 seconds
         private var progressReportTimer: Timer?
 
+        /// Environment variables passed to this surface at creation time.
+        /// Persisted across window restoration so hooks can find the correct status files.
+        private(set) var initialEnvironment: [String: String] = [:]
+
         // This is the title from the terminal. This is nil if we're currently using
         // the terminal title as the main title property. If the title is set manually
         // by the user, this is set to the prior value (which may be empty, but non-nil).
@@ -256,6 +260,7 @@ extension Ghostty {
         init(_ app: ghostty_app_t, baseConfig: SurfaceConfiguration? = nil, uuid: UUID? = nil) {
             self.markedText = NSMutableAttributedString()
             self.id = uuid ?? .init()
+            self.initialEnvironment = baseConfig?.environmentVariables ?? [:]
 
             // Our initial config always is our application wide config.
             if let appDelegate = NSApplication.shared.delegate as? AppDelegate {
@@ -1766,6 +1771,7 @@ extension Ghostty {
             case uuid
             case title
             case isUserSetTitle
+            case environmentVariables
         }
 
         required convenience init(from decoder: Decoder) throws {
@@ -1780,6 +1786,7 @@ extension Ghostty {
             let uuid = UUID(uuidString: try container.decode(String.self, forKey: .uuid))
             var config = Ghostty.SurfaceConfiguration()
             config.workingDirectory = try container.decode(String?.self, forKey: .pwd)
+            config.environmentVariables = try container.decodeIfPresent([String: String].self, forKey: .environmentVariables) ?? [:]
             let savedTitle = try container.decodeIfPresent(String.self, forKey: .title)
             let isUserSetTitle = try container.decodeIfPresent(Bool.self, forKey: .isUserSetTitle) ?? false
 
@@ -1801,6 +1808,9 @@ extension Ghostty {
             try container.encode(id.uuidString, forKey: .uuid)
             try container.encode(title, forKey: .title)
             try container.encode(titleFromTerminal != nil, forKey: .isUserSetTitle)
+            if !initialEnvironment.isEmpty {
+                try container.encode(initialEnvironment, forKey: .environmentVariables)
+            }
         }
     }
 }
