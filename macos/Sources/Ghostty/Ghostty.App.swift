@@ -587,6 +587,9 @@ extension Ghostty {
             case GHOSTTY_ACTION_NEW_SIDEBAR_TAB:
                 newSidebarTab(app, target: target)
 
+            case GHOSTTY_ACTION_CLOSE_SIDEBAR_TAB:
+                return closeSidebarTab(app, target: target)
+
             case GHOSTTY_ACTION_GOTO_HORIZONTAL_TAB:
                 return gotoHorizontalTab(app, target: target, tab: action.action.goto_horizontal_tab)
 
@@ -1060,6 +1063,34 @@ extension Ghostty {
             default:
                 assertionFailure()
             }
+        }
+
+        private static func closeSidebarTab(
+            _ app: ghostty_app_t,
+            target: ghostty_target_s) -> Bool {
+            switch target.tag {
+            case GHOSTTY_TARGET_APP:
+                Ghostty.logger.warning("close sidebar tab does nothing with an app target")
+                return false
+
+            case GHOSTTY_TARGET_SURFACE:
+                guard let surface = target.target.surface else { return false }
+                guard let surfaceView = self.surfaceView(from: surface) else { return false }
+
+                // Only performable when sidebar is showing with multiple horizontal tabs
+                guard let controller = surfaceView.window?.windowController as? BaseTerminalController else { return false }
+                guard controller.sidebarIsShowing && controller.horizontalTabs.count > 1 else { return false }
+
+                NotificationCenter.default.post(
+                    name: .ghosttyCloseSidebarTab,
+                    object: surfaceView
+                )
+
+            default:
+                assertionFailure()
+            }
+
+            return true
         }
 
         private static func gotoHorizontalTab(

@@ -6935,6 +6935,13 @@ pub const Keybinds = struct {
                 .{ .new_sidebar_tab = {} },
                 .{ .performable = true },
             );
+            // Close horizontal tab within the current sidebar task
+            try self.set.putFlags(
+                alloc,
+                .{ .key = .{ .unicode = 'w' }, .mods = .{ .ctrl = true } },
+                .{ .close_sidebar_tab = {} },
+                .{ .performable = true },
+            );
             try self.set.putFlags(
                 alloc,
                 .{ .key = .{ .unicode = 'z' }, .mods = .{ .super = true } },

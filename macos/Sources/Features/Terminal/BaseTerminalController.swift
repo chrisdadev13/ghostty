@@ -251,6 +251,11 @@ class BaseTerminalController: NSWindowController,
             object: nil)
         center.addObserver(
             self,
+            selector: #selector(ghosttyCloseSidebarTab(_:)),
+            name: .ghosttyCloseSidebarTab,
+            object: nil)
+        center.addObserver(
+            self,
             selector: #selector(ghosttyMaximizeDidToggle(_:)),
             name: .ghosttyMaximizeDidToggle,
             object: nil)
@@ -669,6 +674,15 @@ class BaseTerminalController: NSWindowController,
         guard let surfaceView = notification.object as? Ghostty.SurfaceView else { return }
         guard surfaceTree.contains(surfaceView) else { return }
         createNewHorizontalTab()
+    }
+
+    @objc private func ghosttyCloseSidebarTab(_ notification: Notification) {
+        guard let surfaceView = notification.object as? Ghostty.SurfaceView else { return }
+        guard surfaceTree.contains(surfaceView) else { return }
+        guard let activeId = activeTaskId,
+              let taskIndex = sidebarTaskEntries.firstIndex(where: { $0.id == activeId }) else { return }
+        let tabId = sidebarTaskEntries[taskIndex].activeTabId
+        removeHorizontalTab(id: tabId)
     }
 
     @objc private func ghosttyMaximizeDidToggle(_ notification: Notification) {

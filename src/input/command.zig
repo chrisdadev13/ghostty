@@ -720,6 +720,7 @@ fn actionCommands(action: Action.Key) []const Command {
         .toggle_quick_terminal,
         .toggle_visibility,
         .new_sidebar_tab,
+        .close_sidebar_tab,
         .goto_horizontal_tab,
         .previous_tab,
         .next_tab,

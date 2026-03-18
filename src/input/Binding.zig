@@ -770,6 +770,10 @@ pub const Action = union(enum) {
     /// to the currently active sidebar task.
     new_sidebar_tab,
 
+    /// Close the active horizontal tab within the current sidebar task.
+    /// If it's the last horizontal tab, the task itself is removed.
+    close_sidebar_tab,
+
     /// Go to the horizontal tab with the specific index, starting from 1.
     ///
     /// If the tab number is higher than the number of horizontal tabs,
@@ -1382,6 +1386,7 @@ pub const Action = union(enum) {
             .toggle_command_palette,
             .toggle_sidebar,
             .new_sidebar_tab,
+            .close_sidebar_tab,
             .goto_horizontal_tab,
             .toggle_background_opacity,
             .show_on_screen_keyboard,

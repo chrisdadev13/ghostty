@@ -366,6 +366,7 @@ extension Notification.Name {
     static let ghosttyCommandPaletteDidToggle = Notification.Name("com.mitchellh.ghostty.commandPaletteDidToggle")
     static let ghosttySidebarDidToggle = Notification.Name("com.mitchellh.ghostty.sidebarDidToggle")
     static let ghosttyNewSidebarTab = Notification.Name("com.mitchellh.ghostty.newSidebarTab")
+    static let ghosttyCloseSidebarTab = Notification.Name("com.mitchellh.ghostty.closeSidebarTab")
 
     /// Toggle maximize of current window
     static let ghosttyMaximizeDidToggle = Notification.Name("com.mitchellh.ghostty.maximizeDidToggle")

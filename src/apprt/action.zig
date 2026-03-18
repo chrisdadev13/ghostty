@@ -349,6 +349,10 @@ pub const Action = union(Key) {
     /// Create a new horizontal tab within the current sidebar task.
     new_sidebar_tab,
 
+    /// Close the active horizontal tab within the current sidebar task.
+    /// If it's the last horizontal tab, the task itself is removed.
+    close_sidebar_tab,
+
     /// Jump to a specific horizontal tab within the current sidebar task.
     /// Must handle the scenario that the tab value is invalid.
     goto_horizontal_tab: GotoHorizontalTab,
@@ -422,6 +426,7 @@ pub const Action = union(Key) {
         readonly,
         copy_title_to_clipboard,
         new_sidebar_tab,
+        close_sidebar_tab,
         goto_horizontal_tab,
 
         test "ghostty.h Action.Key" {

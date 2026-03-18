@@ -656,6 +656,13 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
             return
         }
 
+        // When sidebar is showing with multiple tasks, close the current task
+        // instead of closing the whole tab/window.
+        if sidebarIsShowing, sidebarTaskEntries.count > 1, let activeId = activeTaskId {
+            removeTask(id: activeId)
+            return
+        }
+
         // More than 1 window means we have tabs and we're closing a tab
         if window?.tabGroup?.windows.count ?? 0 > 1 {
             closeTab(nil)
