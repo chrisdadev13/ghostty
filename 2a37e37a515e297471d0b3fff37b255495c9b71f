@@ -1,0 +1,45 @@
+macos/Sources/Features/Sidebar/SidebarTab.swift
+  1071e8367bff9986 2,4-40,107,110
+  6aa7ddb4bbbbc59d 41-98
+macos/Sources/Features/Terminal/BaseTerminalController.swift
+  1071e8367bff9986 67-68,118-128,180,182-191,198-203,910-911,914-915,918,1506,1508-1509,1520-1527,1529,1578-1582,1607-1737,1739-1769,1771-1774,1779-1791,1799-1805
+  6aa7ddb4bbbbc59d 57-59,1538,1544-1549,1560,1562,1565-1570,1590-1595,1738,1770,1775-1778,1792-1798
+macos/Sources/Features/Sidebar/SidebarView.swift
+  1071e8367bff9986 96,152-153,157,165,167,172,180-183,194-203
+  6aa7ddb4bbbbc59d 3-15,19,31-43,54-62,77-79,81,83-90,99-101,107-130
+macos/Sources/Features/Terminal/TerminalView.swift
+  6aa7ddb4bbbbc59d 42-44,136
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.15",
+  "base_commit_sha": "2a37e37a515e297471d0b3fff37b255495c9b71f",
+  "prompts": {
+    "1071e8367bff9986": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "53a4e358-005e-4462-9f53-1d8a83c9f89c",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Chris <92900301+chrisdadev13@users.noreply.github.com>",
+      "messages": [],
+      "total_additions": 461,
+      "total_deletions": 170,
+      "accepted_lines": 329,
+      "overriden_lines": 0
+    },
+    "6aa7ddb4bbbbc59d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "55b40270-06f7-4538-94da-f6b0d659ae63",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Chris <92900301+chrisdadev13@users.noreply.github.com>",
+      "messages": [],
+      "total_additions": 210,
+      "total_deletions": 39,
+      "accepted_lines": 180,
+      "overriden_lines": 0
+    }
+  }
+}
