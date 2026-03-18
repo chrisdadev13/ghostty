@@ -1,0 +1,25 @@
+macos/Sources/Features/Terminal/BaseTerminalController.swift
+  f75d0aa4d9d9d370 196,200-208,210,226-229,232-233,328
+"macos/Sources/Ghostty/Surface View/SurfaceView_AppKit.swift"
+  f75d0aa4d9d9d370 241-244,263,1774,1789,1811-1813
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.15",
+  "base_commit_sha": "09007810f28e7369e04bfa02798f136528d5c53d",
+  "prompts": {
+    "f75d0aa4d9d9d370": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "317591bb-f88b-4daa-a5c3-1d1a13e78c12",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Chris <92900301+chrisdadev13@users.noreply.github.com>",
+      "messages": [],
+      "total_additions": 28,
+      "total_deletions": 2,
+      "accepted_lines": 28,
+      "overriden_lines": 0
+    }
+  }
+}
