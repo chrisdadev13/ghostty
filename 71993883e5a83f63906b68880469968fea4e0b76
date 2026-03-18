@@ -1,0 +1,53 @@
+macos/Sources/Ghostty/GhosttyPackage.swift
+  269080fc07271040 367
+src/input/Binding.zig
+  269080fc07271040 760-765,1370
+macos/Sources/Features/Terminal/BaseTerminalController.swift
+  269080fc07271040 51-71,163-169,198-200,611-616,879-885,1447-1540
+macos/Sources/Features/Terminal/TerminalController.swift
+  269080fc07271040 546-550,1021-1026,1061-1063
+macos/Sources/Features/Sidebar/SidebarView.swift
+  269080fc07271040 1-136
+macos/Sources/App/macOS/AppDelegate.swift
+  269080fc07271040 78,733,738-742,1212
+src/Surface.zig
+  269080fc07271040 5607-5612
+"macos/Sources/Features/Terminal/Window Styles/TerminalWindow.swift"
+  269080fc07271040 21-23,136,139-148,651-670
+include/ghostty.h
+  269080fc07271040 871
+macos/Sources/Ghostty/Ghostty.App.swift
+  269080fc07271040 584-586,1017-1037
+macos/Sources/Features/Terminal/TerminalView.swift
+  269080fc07271040 36-53,85-120,128-140,142-143,146-150,158,164
+macos/Sources/Features/Sidebar/SidebarTab.swift
+  269080fc07271040 1-13
+macos/Sources/App/macOS/MainMenu.xib
+  269080fc07271040 27,342-347
+src/input/command.zig
+  269080fc07271040 711-716
+macos/Ghostty.xcodeproj/project.pbxproj
+  269080fc07271040 175-176
+src/apprt/action.zig
+  269080fc07271040 120-122,363
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.15",
+  "base_commit_sha": "71993883e5a83f63906b68880469968fea4e0b76",
+  "prompts": {
+    "269080fc07271040": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "209387ac-3c37-4388-801b-663e4a699daa",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Chris <92900301+chrisdadev13@users.noreply.github.com>",
+      "messages": [],
+      "total_additions": 569,
+      "total_deletions": 126,
+      "accepted_lines": 480,
+      "overriden_lines": 0
+    }
+  }
+}
