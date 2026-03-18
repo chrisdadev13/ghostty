@@ -6896,11 +6896,11 @@ pub const Keybinds = struct {
                 .{ .select_all = {} },
             );
 
-            // Undo/redo
+            // New horizontal tab within the current sidebar task
             try self.set.putFlags(
                 alloc,
                 .{ .key = .{ .unicode = 't' }, .mods = .{ .super = true, .shift = true } },
-                .{ .undo = {} },
+                .{ .new_sidebar_tab = {} },
                 .{ .performable = true },
             );
             try self.set.putFlags(

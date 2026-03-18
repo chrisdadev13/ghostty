@@ -346,6 +346,9 @@ pub const Action = union(Key) {
     /// otherwise the terminal-set title.
     copy_title_to_clipboard,
 
+    /// Create a new horizontal tab within the current sidebar task.
+    new_sidebar_tab,
+
     /// Sync with: ghostty_action_tag_e
     pub const Key = enum(c_int) {
         quit,
@@ -414,6 +417,7 @@ pub const Action = union(Key) {
         search_selected,
         readonly,
         copy_title_to_clipboard,
+        new_sidebar_tab,
 
         test "ghostty.h Action.Key" {
             try lib.checkGhosttyHEnum(Key, "GHOSTTY_ACTION_");

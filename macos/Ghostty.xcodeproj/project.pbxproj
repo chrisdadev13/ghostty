@@ -185,6 +185,7 @@
 				Features/Splits/TerminalSplitTreeView.swift,
 				Features/Terminal/BaseTerminalController.swift,
 				Features/Terminal/ErrorView.swift,
+				Features/Terminal/HorizontalTabBarView.swift,
 				Features/Terminal/TerminalController.swift,
 				Features/Terminal/TerminalRestorable.swift,
 				Features/Terminal/TerminalTabColor.swift,

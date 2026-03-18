@@ -60,25 +60,25 @@ enum SidebarSortMode: Hashable {
 
 /// Logical grouping of task statuses for the grouped sidebar view.
 enum StatusGroup: CaseIterable, Hashable {
-    case running
     case needsInput
     case draft
+    case running
     case done
 
     var title: String {
         switch self {
-        case .running: return "Running"
         case .needsInput: return "Needs Input"
         case .draft: return "Draft"
+        case .running: return "Running"
         case .done: return "Done"
         }
     }
 
     var color: Color {
         switch self {
-        case .running: return .orange
         case .needsInput: return .blue
         case .draft: return .white.opacity(0.3)
+        case .running: return .orange
         case .done: return .green
         }
     }
@@ -108,4 +108,12 @@ struct SidebarTab: Identifiable {
     let isSplit: Bool
     let isZoomed: Bool
     let status: TaskStatus
+}
+
+/// Data model representing a single horizontal tab within a sidebar task.
+struct HorizontalTabItem: Identifiable {
+    let id: UUID
+    let title: String
+    let isSelected: Bool
+    let index: Int
 }

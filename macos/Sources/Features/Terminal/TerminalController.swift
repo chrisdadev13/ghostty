@@ -154,8 +154,15 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
             window.surfaceIsZoomed = to.zoomed != nil
         }
 
-        // If our surface tree is now nil then we close our window.
+        // If our surface tree is now nil then we close our window,
+        // unless we have multiple horizontal tabs (handled in replaceSurfaceTree).
         if to.isEmpty {
+            if let activeId = activeTaskId,
+               let taskIndex = sidebarTaskEntries.firstIndex(where: { $0.id == activeId }),
+               sidebarTaskEntries[taskIndex].tabs.count > 1 {
+                // Already handled by replaceSurfaceTree
+                return
+            }
             self.window?.close()
         }
     }
@@ -166,9 +173,16 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
         moveFocusFrom oldView: Ghostty.SurfaceView? = nil,
         undoAction: String? = nil
     ) {
-        // We have a special case if our tree is empty to close our tab immediately.
-        // This makes it so that undo is handled properly.
+        // When the tree becomes empty: if the active task has >1 horizontal tab,
+        // close the current tab instead of closing the entire native tab/window.
         if newTree.isEmpty {
+            if let activeId = activeTaskId,
+               let taskIndex = sidebarTaskEntries.firstIndex(where: { $0.id == activeId }),
+               sidebarTaskEntries[taskIndex].tabs.count > 1 {
+                let tabId = sidebarTaskEntries[taskIndex].activeTabId
+                removeHorizontalTab(id: tabId)
+                return
+            }
             closeTabImmediately()
             return
         }
@@ -1471,6 +1485,22 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
         guard let tabEnumAny = notification.userInfo?[Ghostty.Notification.GotoTabKey] else { return }
         guard let tabEnum = tabEnumAny as? ghostty_action_goto_tab_e else { return }
         let tabIndex: Int32 = tabEnum.rawValue
+
+        // When sidebar is showing and active task has >1 horizontal tab,
+        // navigate horizontal tabs for previous/next instead of native tabs.
+        if sidebarIsShowing && horizontalTabs.count > 1 && tabIndex <= 0 {
+            if tabIndex == GHOSTTY_GOTO_TAB_PREVIOUS.rawValue || tabIndex == GHOSTTY_GOTO_TAB_NEXT.rawValue {
+                guard let currentIndex = horizontalTabs.firstIndex(where: { $0.isSelected }) else { return }
+                let newIndex: Int
+                if tabIndex == GHOSTTY_GOTO_TAB_PREVIOUS.rawValue {
+                    newIndex = currentIndex == 0 ? horizontalTabs.count - 1 : currentIndex - 1
+                } else {
+                    newIndex = currentIndex == horizontalTabs.count - 1 ? 0 : currentIndex + 1
+                }
+                switchToHorizontalTab(id: horizontalTabs[newIndex].id)
+                return
+            }
+        }
 
         guard let windowController = window.windowController else { return }
         guard let tabGroup = windowController.window?.tabGroup else { return }

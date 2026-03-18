@@ -54,6 +54,18 @@ protocol TerminalViewModel: ObservableObject {
     /// Remove a task by ID.
     func removeTask(id: UUID)
 
+    /// The horizontal tabs for the active sidebar task.
+    var horizontalTabs: [HorizontalTabItem] { get set }
+
+    /// Create a new horizontal tab within the active sidebar task.
+    func createNewHorizontalTab(withConfig config: Ghostty.SurfaceConfiguration?)
+
+    /// Switch to a specific horizontal tab by ID.
+    func switchToHorizontalTab(id: UUID)
+
+    /// Remove a horizontal tab by ID.
+    func removeHorizontalTab(id: UUID)
+
     /// The update overlay should be visible.
     var updateOverlayIsVisible: Bool { get }
 }
@@ -92,6 +104,16 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
             // know that performance will be degraded.
             if Ghostty.info.mode == GHOSTTY_BUILD_MODE_DEBUG || Ghostty.info.mode == GHOSTTY_BUILD_MODE_RELEASE_SAFE {
                 DebugBuildWarningView()
+            }
+
+            if viewModel.horizontalTabs.count > 1 {
+                HorizontalTabBarView(
+                    tabs: viewModel.horizontalTabs,
+                    backgroundColor: ghostty.config.backgroundColor,
+                    onSelectTab: { id in viewModel.switchToHorizontalTab(id: id) },
+                    onNewTab: { viewModel.createNewHorizontalTab(withConfig: nil) },
+                    onRemoveTab: { id in viewModel.removeHorizontalTab(id: id) }
+                )
             }
 
             TerminalSplitTreeView(

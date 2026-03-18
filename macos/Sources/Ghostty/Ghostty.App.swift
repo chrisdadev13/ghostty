@@ -584,6 +584,9 @@ extension Ghostty {
             case GHOSTTY_ACTION_TOGGLE_SIDEBAR:
                 toggleSidebar(app, target: target)
 
+            case GHOSTTY_ACTION_NEW_SIDEBAR_TAB:
+                newSidebarTab(app, target: target)
+
             case GHOSTTY_ACTION_TOGGLE_MAXIMIZE:
                 toggleMaximize(app, target: target)
 
@@ -1035,6 +1038,27 @@ extension Ghostty {
             }
         }
 
+        private static func newSidebarTab(
+            _ app: ghostty_app_t,
+            target: ghostty_target_s) {
+            switch target.tag {
+            case GHOSTTY_TARGET_APP:
+                Ghostty.logger.warning("new sidebar tab does nothing with an app target")
+                return
+
+            case GHOSTTY_TARGET_SURFACE:
+                guard let surface = target.target.surface else { return }
+                guard let surfaceView = self.surfaceView(from: surface) else { return }
+                NotificationCenter.default.post(
+                    name: .ghosttyNewSidebarTab,
+                    object: surfaceView
+                )
+
+            default:
+                assertionFailure()
+            }
+        }
+
         private static func toggleMaximize(
             _ app: ghostty_app_t,
             target: ghostty_target_s
@@ -1160,7 +1184,13 @@ extension Ghostty {
 
                     // Similar to goto_split (see comment there) about our performability,
                     // we should make this more accurate later.
-                    guard (surfaceView.window?.tabGroup?.windows.count ?? 0) > 1 else { return false }
+                    // Also allow when we have horizontal tabs in the sidebar.
+                    let hasMultipleNativeTabs = (surfaceView.window?.tabGroup?.windows.count ?? 0) > 1
+                    let hasMultipleHorizontalTabs: Bool = {
+                        guard let controller = surfaceView.window?.windowController as? BaseTerminalController else { return false }
+                        return controller.horizontalTabs.count > 1
+                    }()
+                    guard hasMultipleNativeTabs || hasMultipleHorizontalTabs else { return false }
 
                     NotificationCenter.default.post(
                         name: Notification.ghosttyGotoTab,

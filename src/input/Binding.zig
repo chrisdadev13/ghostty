@@ -763,6 +763,13 @@ pub const Action = union(enum) {
     /// allowing quick navigation between them.
     toggle_sidebar,
 
+    /// Create a new horizontal tab within the current sidebar task.
+    ///
+    /// Each sidebar task can contain multiple horizontal tabs, each
+    /// with its own terminal surface. This action adds a new tab
+    /// to the currently active sidebar task.
+    new_sidebar_tab,
+
     /// Toggle the quick terminal.
     ///
     /// The quick terminal, also known as the "Quake-style" or drop-down
@@ -1368,6 +1375,7 @@ pub const Action = union(enum) {
             .toggle_mouse_reporting,
             .toggle_command_palette,
             .toggle_sidebar,
+            .new_sidebar_tab,
             .toggle_background_opacity,
             .show_on_screen_keyboard,
             .reset_window_size,

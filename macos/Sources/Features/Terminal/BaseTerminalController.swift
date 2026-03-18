@@ -57,15 +57,30 @@ class BaseTerminalController: NSWindowController,
     /// The sidebar sort mode, persisted in the view model so it survives SwiftUI re-renders.
     @Published var sidebarSortMode: SidebarSortMode = .recent
 
+    /// The list of horizontal tabs for the active sidebar task.
+    @Published var horizontalTabs: [HorizontalTabItem] = []
+
     // MARK: - Sidebar Task Management
 
-    /// Internal storage for sidebar tasks. Each task holds its own surface tree.
-    struct TaskEntry {
+    /// A single horizontal tab within a sidebar task.
+    struct TaskTab: Identifiable {
         let id: UUID
         var title: String
         var surfaceTree: SplitTree<Ghostty.SurfaceView>
+    }
+
+    /// Internal storage for sidebar tasks. Each task holds multiple horizontal tabs.
+    struct TaskEntry {
+        let id: UUID
+        var title: String
+        var tabs: [TaskTab]
+        var activeTabId: UUID
         var status: TaskStatus = .idle
         var hasUnseen: Bool = false
+
+        var activeSurfaceTree: SplitTree<Ghostty.SurfaceView>? {
+            tabs.first(where: { $0.id == activeTabId })?.surfaceTree
+        }
     }
 
     /// All sidebar tasks.
@@ -189,7 +204,8 @@ class BaseTerminalController: NSWindowController,
             initialTree = .init(view: Ghostty.SurfaceView(ghostty_app, baseConfig: surfaceConfig))
         }
         self.surfaceTree = initialTree
-        self.sidebarTaskEntries = [TaskEntry(id: taskId, title: "Task 1", surfaceTree: initialTree)]
+        let initialTab = TaskTab(id: UUID(), title: "Terminal", surfaceTree: initialTree)
+        self.sidebarTaskEntries = [TaskEntry(id: taskId, title: "Task 1", tabs: [initialTab], activeTabId: initialTab.id)]
         self.activeTaskId = taskId
 
         // Setup our bell state for the window
@@ -227,6 +243,11 @@ class BaseTerminalController: NSWindowController,
             self,
             selector: #selector(ghosttySidebarDidToggle(_:)),
             name: .ghosttySidebarDidToggle,
+            object: nil)
+        center.addObserver(
+            self,
+            selector: #selector(ghosttyNewSidebarTab(_:)),
+            name: .ghosttyNewSidebarTab,
             object: nil)
         center.addObserver(
             self,
@@ -644,6 +665,12 @@ class BaseTerminalController: NSWindowController,
         toggleSidebar(nil)
     }
 
+    @objc private func ghosttyNewSidebarTab(_ notification: Notification) {
+        guard let surfaceView = notification.object as? Ghostty.SurfaceView else { return }
+        guard surfaceTree.contains(surfaceView) else { return }
+        createNewHorizontalTab()
+    }
+
     @objc private func ghosttyMaximizeDidToggle(_ notification: Notification) {
         guard let window else { return }
         guard let surfaceView = notification.object as? Ghostty.SurfaceView else { return }
@@ -914,8 +941,15 @@ class BaseTerminalController: NSWindowController,
             let titleFile = "\(Self.claudeStatusDir)/\(activeId.uuidString).title"
             if !FileManager.default.fileExists(atPath: titleFile) {
                 sidebarTaskEntries[index].title = to
-                refreshSidebarTabs()
             }
+
+            // Always update the active horizontal tab's title from the terminal title.
+            let activeTabId = sidebarTaskEntries[index].activeTabId
+            if let tabIndex = sidebarTaskEntries[index].tabs.firstIndex(where: { $0.id == activeTabId }) {
+                sidebarTaskEntries[index].tabs[tabIndex].title = to
+            }
+
+            refreshSidebarTabs()
         }
     }
 
@@ -1492,8 +1526,9 @@ class BaseTerminalController: NSWindowController,
         saveActiveTaskTree()
 
         sidebarTabs = sidebarTaskEntries.enumerated().map { (i, task) in
+            let tree = task.activeSurfaceTree
             let isSplit: Bool = {
-                guard let root = task.surfaceTree.root else { return false }
+                guard let root = tree?.root else { return false }
                 if case .split = root { return true }
                 return false
             }()
@@ -1505,10 +1540,12 @@ class BaseTerminalController: NSWindowController,
                 isSelected: task.id == activeTaskId,
                 hasUnseen: task.hasUnseen,
                 isSplit: isSplit,
-                isZoomed: task.surfaceTree.zoomed != nil,
+                isZoomed: tree?.zoomed != nil,
                 status: task.status
             )
         }
+
+        refreshHorizontalTabs()
     }
 
     func createNewSidebarTask(withConfig config: Ghostty.SurfaceConfiguration? = nil) {
@@ -1529,11 +1566,13 @@ class BaseTerminalController: NSWindowController,
         let surfaceView = Ghostty.SurfaceView(ghostty_app, baseConfig: surfaceConfig)
         let tree = SplitTree<Ghostty.SurfaceView>(view: surfaceView)
 
-        // Create task entry
+        // Create task entry with initial tab — title updated by titleDidChange
+        let tab = TaskTab(id: UUID(), title: "Terminal", surfaceTree: tree)
         let task = TaskEntry(
             id: taskId,
             title: "Task \(sidebarTaskEntries.count + 1)",
-            surfaceTree: tree
+            tabs: [tab],
+            activeTabId: tab.id
         )
         sidebarTaskEntries.insert(task, at: 0)
 
@@ -1560,10 +1599,11 @@ class BaseTerminalController: NSWindowController,
         // Load the selected task and clear unseen
         activeTaskId = id
         sidebarTaskEntries[taskIndex].hasUnseen = false
-        self.surfaceTree = sidebarTaskEntries[taskIndex].surfaceTree
+        guard let tree = sidebarTaskEntries[taskIndex].activeSurfaceTree else { return }
+        self.surfaceTree = tree
 
         // Focus the surface so it receives keyboard input immediately
-        if let surface = sidebarTaskEntries[taskIndex].surfaceTree.first {
+        if let surface = tree.first {
             focusedSurface = surface
             Ghostty.moveFocus(to: surface)
         }
@@ -1586,12 +1626,14 @@ class BaseTerminalController: NSWindowController,
         if id == activeTaskId {
             let newIndex = min(index, sidebarTaskEntries.count - 1)
             activeTaskId = sidebarTaskEntries[newIndex].id
-            self.surfaceTree = sidebarTaskEntries[newIndex].surfaceTree
+            if let tree = sidebarTaskEntries[newIndex].activeSurfaceTree {
+                self.surfaceTree = tree
 
-            // Focus the surface so it receives keyboard input immediately
-            if let surface = sidebarTaskEntries[newIndex].surfaceTree.first {
-                focusedSurface = surface
-                Ghostty.moveFocus(to: surface)
+                // Focus the surface so it receives keyboard input immediately
+                if let surface = tree.first {
+                    focusedSurface = surface
+                    Ghostty.moveFocus(to: surface)
+                }
             }
         }
 
@@ -1600,8 +1642,122 @@ class BaseTerminalController: NSWindowController,
 
     private func saveActiveTaskTree() {
         guard let activeId = activeTaskId,
-              let index = sidebarTaskEntries.firstIndex(where: { $0.id == activeId }) else { return }
-        sidebarTaskEntries[index].surfaceTree = self.surfaceTree
+              let taskIndex = sidebarTaskEntries.firstIndex(where: { $0.id == activeId }) else { return }
+        let activeTabId = sidebarTaskEntries[taskIndex].activeTabId
+        guard let tabIndex = sidebarTaskEntries[taskIndex].tabs.firstIndex(where: { $0.id == activeTabId }) else { return }
+        sidebarTaskEntries[taskIndex].tabs[tabIndex].surfaceTree = self.surfaceTree
+    }
+
+    // MARK: - Horizontal Tab Management
+
+    func createNewHorizontalTab(withConfig config: Ghostty.SurfaceConfiguration? = nil) {
+        guard let ghostty_app = ghostty.app else { return }
+        guard let activeId = activeTaskId,
+              let taskIndex = sidebarTaskEntries.firstIndex(where: { $0.id == activeId }) else { return }
+
+        // Save current tab's tree
+        saveActiveTaskTree()
+
+        // Create new surface and tree
+        var surfaceConfig = config ?? Ghostty.SurfaceConfiguration()
+        surfaceConfig.environmentVariables["GHOSTTY_TASK_ID"] = activeId.uuidString
+        surfaceConfig.environmentVariables["GHOSTTY_TASK_STATUS_DIR"] = Self.claudeStatusDir
+
+        let surfaceView = Ghostty.SurfaceView(ghostty_app, baseConfig: surfaceConfig)
+        let tree = SplitTree<Ghostty.SurfaceView>(view: surfaceView)
+
+        // Create and append new tab — title will be updated by titleDidChange
+        // once the shell sets its title (e.g. PWD or running command).
+        let tabId = UUID()
+        let tab = TaskTab(id: tabId, title: surfaceView.title.isEmpty ? "Terminal" : surfaceView.title, surfaceTree: tree)
+        sidebarTaskEntries[taskIndex].tabs.append(tab)
+        sidebarTaskEntries[taskIndex].activeTabId = tabId
+
+        // Switch to the new tab's tree
+        self.surfaceTree = tree
+
+        // Focus the new surface
+        if let surface = tree.first {
+            focusedSurface = surface
+            Ghostty.moveFocus(to: surface)
+        }
+
+        refreshHorizontalTabs()
+        refreshSidebarTabs()
+    }
+
+    func switchToHorizontalTab(id: UUID) {
+        guard let activeId = activeTaskId,
+              let taskIndex = sidebarTaskEntries.firstIndex(where: { $0.id == activeId }) else { return }
+        guard sidebarTaskEntries[taskIndex].activeTabId != id else { return }
+        guard sidebarTaskEntries[taskIndex].tabs.contains(where: { $0.id == id }) else { return }
+
+        // Save current tab's tree
+        saveActiveTaskTree()
+
+        // Switch to the selected tab
+        sidebarTaskEntries[taskIndex].activeTabId = id
+        guard let tree = sidebarTaskEntries[taskIndex].activeSurfaceTree else { return }
+        self.surfaceTree = tree
+
+        // Focus the surface
+        if let surface = tree.first {
+            focusedSurface = surface
+            Ghostty.moveFocus(to: surface)
+        }
+
+        refreshHorizontalTabs()
+    }
+
+    func removeHorizontalTab(id: UUID) {
+        guard let activeId = activeTaskId,
+              let taskIndex = sidebarTaskEntries.firstIndex(where: { $0.id == activeId }) else { return }
+
+        let tabs = sidebarTaskEntries[taskIndex].tabs
+
+        // If this is the last tab, remove the entire task
+        if tabs.count <= 1 {
+            removeTask(id: activeId)
+            return
+        }
+
+        guard let tabIndex = tabs.firstIndex(where: { $0.id == id }) else { return }
+
+        sidebarTaskEntries[taskIndex].tabs.remove(at: tabIndex)
+
+        // If we removed the active tab, switch to an adjacent one
+        if sidebarTaskEntries[taskIndex].activeTabId == id {
+            let newIndex = min(tabIndex, sidebarTaskEntries[taskIndex].tabs.count - 1)
+            let newTab = sidebarTaskEntries[taskIndex].tabs[newIndex]
+            sidebarTaskEntries[taskIndex].activeTabId = newTab.id
+            self.surfaceTree = newTab.surfaceTree
+
+            if let surface = newTab.surfaceTree.first {
+                focusedSurface = surface
+                Ghostty.moveFocus(to: surface)
+            }
+        }
+
+        refreshHorizontalTabs()
+        refreshSidebarTabs()
+    }
+
+    func refreshHorizontalTabs() {
+        guard let activeId = activeTaskId,
+              let taskIndex = sidebarTaskEntries.firstIndex(where: { $0.id == activeId }) else {
+            horizontalTabs = []
+            return
+        }
+
+        let task = sidebarTaskEntries[taskIndex]
+        horizontalTabs = task.tabs.enumerated().map { (i, tab) in
+            HorizontalTabItem(
+                id: tab.id,
+                title: tab.title,
+                isSelected: tab.id == task.activeTabId,
+                index: i + 1
+            )
+        }
     }
 
     // MARK: - Claude Code Integration
@@ -1624,10 +1780,11 @@ class BaseTerminalController: NSWindowController,
         [ -z "$GHOSTTY_TASK_ID" ] || [ -z "$GHOSTTY_TASK_STATUS_DIR" ] && exit 0
         mkdir -p "$GHOSTTY_TASK_STATUS_DIR"
         SF="$GHOSTTY_TASK_STATUS_DIR/$GHOSTTY_TASK_ID"
+        INPUT=$(cat)
         printf '%s' "$1" > "$SF"
         # Capture prompt as title once (skip reading stdin on subsequent PostToolUse calls)
         if [ "$1" = "running" ] && [ ! -f "${SF}.title" ]; then
-            T=$(cat | jq -r '.prompt // .message // .content // empty' 2>/dev/null | head -1 | cut -c1-60)
+            T=$(echo "$INPUT" | jq -r '.prompt // .message // .content // empty' 2>/dev/null | head -1 | cut -c1-60)
             [ -n "$T" ] && printf '%s' "$T" > "${SF}.title"
         fi
         exit 0
@@ -1665,7 +1822,7 @@ class BaseTerminalController: NSWindowController,
             ("PostToolUse", "running", nil),         // Tool completed → still working
             ("PermissionRequest", "needs_input", nil), // Permission dialog shown → needs input
             ("Stop", "idle", nil),                   // Claude finished a turn → done
-            ("SessionEnd", "idle", nil),             // Claude exited → done
+            ("SessionEnd", "exited", nil),           // Claude Code process exited → idle
         ]
 
         let marker = "ghostty-sidebar-status"
@@ -1750,6 +1907,8 @@ class BaseTerminalController: NSWindowController,
                     newStatus = .claudeIdle
                 case "needs_input":
                     newStatus = .claudeNeedsInput
+                case "exited":
+                    newStatus = .idle
                 default:
                     newStatus = .running
                 }
@@ -1757,10 +1916,8 @@ class BaseTerminalController: NSWindowController,
                 // No status file — keep current status unless it was a claude state
                 // (the file may have been cleaned up on session end)
                 switch sidebarTaskEntries[i].status {
-                case .claudeInProgress, .claudeNeedsInput:
-                    newStatus = .claudeIdle
-                case .claudeIdle:
-                    newStatus = .claudeIdle
+                case .claudeInProgress, .claudeNeedsInput, .claudeIdle:
+                    newStatus = .idle
                 default:
                     newStatus = sidebarTaskEntries[i].status
                 }
