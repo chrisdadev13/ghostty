@@ -18,6 +18,9 @@ class TerminalWindow: NSWindow {
     /// The view model for SwiftUI views
     private var viewModel = ViewModel()
 
+    /// Sidebar toggle button in titlebar (left side, near traffic lights)
+    private let sidebarToggleAccessory = NSTitlebarAccessoryViewController()
+
     /// Reset split zoom button in titlebar
     private let resetZoomAccessory = NSTitlebarAccessoryViewController()
 
@@ -130,9 +133,19 @@ class TerminalWindow: NSWindow {
             hideWindowButtons()
         }
 
-        // Create our reset zoom titlebar accessory. We have to have a title
+        // Create our titlebar accessories. We have to have a title
         // to do this or AppKit triggers an assertion.
         if styleMask.contains(.titled) {
+            // Sidebar toggle button (left side, near traffic lights)
+            sidebarToggleAccessory.layoutAttribute = .leading
+            sidebarToggleAccessory.view = NSHostingView(rootView: SidebarToggleAccessoryView(
+                action: { [weak self] in
+                    guard let self else { return }
+                    (self.windowController as? BaseTerminalController)?.toggleSidebar(self)
+                }))
+            addTitlebarAccessoryViewController(sidebarToggleAccessory)
+            sidebarToggleAccessory.view.translatesAutoresizingMaskIntoConstraints = false
+
             resetZoomAccessory.layoutAttribute = .right
             resetZoomAccessory.view = NSHostingView(rootView: ResetZoomAccessoryView(
                 viewModel: viewModel,
@@ -632,6 +645,26 @@ extension TerminalWindow {
             } else {
                 return hasToolbar ? 9 : 4
             }
+        }
+    }
+
+    struct SidebarToggleAccessoryView: View {
+        let action: () -> Void
+
+        var body: some View {
+            VStack {
+                Button(action: action) {
+                    Image(systemName: "sidebar.left")
+                        .font(.system(size: 12))
+                        .foregroundColor(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Toggle Sidebar")
+                .frame(width: 20, height: 20)
+                Spacer()
+            }
+            .padding(.top, 6)
+            .padding(.leading, 4)
         }
     }
 

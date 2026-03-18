@@ -543,6 +543,11 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
                 }
             }
         }
+
+        // Keep sidebar in sync when tabs change
+        if sidebarIsShowing {
+            refreshSidebarTabs()
+        }
     }
 
     private func fixTabBar() {
@@ -1013,6 +1018,12 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
         super.windowDidLoad()
         guard let window else { return }
 
+        // When the sidebar is active, disable native tab bar entirely.
+        // The sidebar manages terminal sessions (tasks) instead.
+        if sidebarIsShowing {
+            window.tabbingMode = .disallowed
+        }
+
         // I copy this because we may change the source in the future but also because
         // I regularly audit our codebase for "ghostty.config" access because generally
         // you shouldn't use it. Its safe in this case because for a new window we should
@@ -1046,6 +1057,9 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
         container.initialContentSize = focusedSurface?.initialSize
 
         window.contentView = container
+
+        // Initialize sidebar task list
+        refreshSidebarTabs()
 
         // If we have a default size, we want to apply it.
         if let defaultSize {

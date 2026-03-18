@@ -48,6 +48,27 @@ class BaseTerminalController: NSWindowController,
     /// This can be set to show/hide the command palette.
     @Published var commandPaletteIsShowing: Bool = false
 
+    /// This can be set to show/hide the sidebar.
+    @Published var sidebarIsShowing: Bool = true
+
+    /// The list of task entries for the sidebar display.
+    @Published var sidebarTabs: [SidebarTab] = []
+
+    // MARK: - Sidebar Task Management
+
+    /// Internal storage for sidebar tasks. Each task holds its own surface tree.
+    struct TaskEntry {
+        let id: UUID
+        var title: String
+        var surfaceTree: SplitTree<Ghostty.SurfaceView>
+    }
+
+    /// All sidebar tasks.
+    private(set) var sidebarTaskEntries: [TaskEntry] = []
+
+    /// The currently active task ID.
+    private(set) var activeTaskId: UUID?
+
     /// Set if the terminal view should show the update overlay.
     @Published var updateOverlayIsVisible: Bool = false
 
@@ -139,7 +160,13 @@ class BaseTerminalController: NSWindowController,
 
         // Initialize our initial surface.
         guard let ghostty_app = ghostty.app else { preconditionFailure("app must be loaded") }
-        self.surfaceTree = tree ?? .init(view: Ghostty.SurfaceView(ghostty_app, baseConfig: base))
+        let initialTree = tree ?? .init(view: Ghostty.SurfaceView(ghostty_app, baseConfig: base))
+        self.surfaceTree = initialTree
+
+        // Create the first sidebar task from the initial surface tree.
+        let taskId = UUID()
+        self.sidebarTaskEntries = [TaskEntry(id: taskId, title: "Task 1", surfaceTree: initialTree)]
+        self.activeTaskId = taskId
 
         // Setup our bell state for the window
         setupBellNotificationPublisher()
@@ -165,6 +192,11 @@ class BaseTerminalController: NSWindowController,
             self,
             selector: #selector(ghosttyCommandPaletteDidToggle(_:)),
             name: .ghosttyCommandPaletteDidToggle,
+            object: nil)
+        center.addObserver(
+            self,
+            selector: #selector(ghosttySidebarDidToggle(_:)),
+            name: .ghosttySidebarDidToggle,
             object: nil)
         center.addObserver(
             self,
@@ -576,6 +608,12 @@ class BaseTerminalController: NSWindowController,
         toggleCommandPalette(nil)
     }
 
+    @objc private func ghosttySidebarDidToggle(_ notification: Notification) {
+        guard let surfaceView = notification.object as? Ghostty.SurfaceView else { return }
+        guard surfaceTree.contains(surfaceView) else { return }
+        toggleSidebar(nil)
+    }
+
     @objc private func ghosttyMaximizeDidToggle(_ notification: Notification) {
         guard let window else { return }
         guard let surfaceView = notification.object as? Ghostty.SurfaceView else { return }
@@ -838,6 +876,13 @@ class BaseTerminalController: NSWindowController,
     private func titleDidChange(to: String) {
         lastComputedTitle = to
         applyTitleToWindow()
+
+        // Update the active sidebar task's title
+        if let activeId = activeTaskId,
+           let index = sidebarTaskEntries.firstIndex(where: { $0.id == activeId }) {
+            sidebarTaskEntries[index].title = to
+            refreshSidebarTabs()
+        }
     }
 
     private func applyTitleToWindow() {
@@ -1397,6 +1442,100 @@ class BaseTerminalController: NSWindowController,
 
     @IBAction func toggleCommandPalette(_ sender: Any?) {
         commandPaletteIsShowing.toggle()
+    }
+
+    @IBAction func toggleSidebar(_ sender: Any?) {
+        sidebarIsShowing.toggle()
+        if sidebarIsShowing {
+            refreshSidebarTabs()
+        }
+    }
+
+    // MARK: - Sidebar Task Operations
+
+    func refreshSidebarTabs() {
+        // Sync current surfaceTree back to active task before generating display list
+        saveActiveTaskTree()
+
+        sidebarTabs = sidebarTaskEntries.enumerated().map { (i, task) in
+            let isSplit: Bool = {
+                guard let root = task.surfaceTree.root else { return false }
+                if case .split = root { return true }
+                return false
+            }()
+
+            return SidebarTab(
+                id: task.id,
+                index: i + 1,
+                title: task.title,
+                isSelected: task.id == activeTaskId,
+                hasBell: false,
+                isSplit: isSplit,
+                isZoomed: task.surfaceTree.zoomed != nil
+            )
+        }
+    }
+
+    func createNewSidebarTask(withConfig config: Ghostty.SurfaceConfiguration? = nil) {
+        guard let ghostty_app = ghostty.app else { return }
+
+        // Save current task's tree
+        saveActiveTaskTree()
+
+        // Create new surface and tree
+        let surfaceView = Ghostty.SurfaceView(ghostty_app, baseConfig: config)
+        let tree = SplitTree<Ghostty.SurfaceView>(view: surfaceView)
+
+        // Create task entry
+        let taskId = UUID()
+        let task = TaskEntry(
+            id: taskId,
+            title: "Task \(sidebarTaskEntries.count + 1)",
+            surfaceTree: tree
+        )
+        sidebarTaskEntries.append(task)
+
+        // Switch to new task
+        activeTaskId = taskId
+        self.surfaceTree = tree
+
+        refreshSidebarTabs()
+    }
+
+    func switchToTask(id: UUID) {
+        guard id != activeTaskId else { return }
+        guard let taskIndex = sidebarTaskEntries.firstIndex(where: { $0.id == id }) else { return }
+
+        // Save current task's tree
+        saveActiveTaskTree()
+
+        // Load the selected task
+        activeTaskId = id
+        self.surfaceTree = sidebarTaskEntries[taskIndex].surfaceTree
+
+        refreshSidebarTabs()
+    }
+
+    func removeTask(id: UUID) {
+        guard sidebarTaskEntries.count > 1 else { return }
+        guard let index = sidebarTaskEntries.firstIndex(where: { $0.id == id }) else { return }
+
+        sidebarTaskEntries.remove(at: index)
+
+        // If we removed the active task, switch to another
+        if id == activeTaskId {
+            let newIndex = min(index, sidebarTaskEntries.count - 1)
+            activeTaskId = sidebarTaskEntries[newIndex].id
+            self.surfaceTree = sidebarTaskEntries[newIndex].surfaceTree
+        }
+
+        refreshSidebarTabs()
+    }
+
+    private func saveActiveTaskTree() {
+        guard let activeId = activeTaskId,
+              let index = sidebarTaskEntries.firstIndex(where: { $0.id == activeId }) else { return }
+        sidebarTaskEntries[index].surfaceTree = self.surfaceTree
     }
 
     @IBAction func find(_ sender: Any) {

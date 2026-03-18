@@ -75,6 +75,7 @@ class AppDelegate: NSObject,
     @IBOutlet private var menuQuickTerminal: NSMenuItem?
     @IBOutlet private var menuTerminalInspector: NSMenuItem?
     @IBOutlet private var menuCommandPalette: NSMenuItem?
+    @IBOutlet private var menuToggleSidebar: NSMenuItem?
 
     @IBOutlet private var menuEqualizeSplits: NSMenuItem?
     @IBOutlet private var menuMoveSplitDividerUp: NSMenuItem?
@@ -729,10 +730,16 @@ class AppDelegate: NSObject,
 
         // We only want to listen to new tabs if the focused parent is
         // a regular terminal controller.
-        guard window.windowController is TerminalController else { return }
+        guard let controller = window.windowController as? TerminalController else { return }
 
         let configAny = notification.userInfo?[Ghostty.Notification.NewSurfaceConfigKey]
         let config = configAny as? Ghostty.SurfaceConfiguration
+
+        // When sidebar is active, create a sidebar task instead of a native tab.
+        if controller.sidebarIsShowing {
+            controller.createNewSidebarTask(withConfig: config)
+            return
+        }
 
         _ = TerminalController.newTab(ghostty, from: window, withBaseConfig: config)
     }
@@ -1202,6 +1209,7 @@ extension AppDelegate {
         syncMenuShortcut(config, action: "toggle_window_float_on_top", menuItem: self.menuFloatOnTop)
         syncMenuShortcut(config, action: "inspector:toggle", menuItem: self.menuTerminalInspector)
         syncMenuShortcut(config, action: "toggle_command_palette", menuItem: self.menuCommandPalette)
+        syncMenuShortcut(config, action: "toggle_sidebar", menuItem: self.menuToggleSidebar)
 
         syncMenuShortcut(config, action: "toggle_secure_input", menuItem: self.menuSecureInput)
 
