@@ -6856,6 +6856,38 @@ pub const Keybinds = struct {
             );
         }
 
+        // Ctrl+N for goto horizontal tab N (within sidebar task)
+        if (builtin.target.os.tag.isDarwin()) {
+            const ht_mods: inputpkg.Mods = .{ .ctrl = true };
+            const ht_start: u21 = '1';
+            const ht_end: u21 = '8';
+            comptime var ht_i: u21 = ht_start;
+            inline while (ht_i <= ht_end) : (ht_i += 1) {
+                try self.set.putFlags(
+                    alloc,
+                    .{
+                        .key = .{ .physical = @field(
+                            inputpkg.Key,
+                            std.fmt.comptimePrint("digit_{u}", .{ht_i}),
+                        ) },
+                        .mods = ht_mods,
+                    },
+                    .{ .goto_horizontal_tab = (ht_i - ht_start) + 1 },
+                    .{ .performable = true },
+                );
+
+                try self.set.putFlags(
+                    alloc,
+                    .{
+                        .key = .{ .unicode = ht_i },
+                        .mods = ht_mods,
+                    },
+                    .{ .goto_horizontal_tab = (ht_i - ht_start) + 1 },
+                    .{ .performable = true },
+                );
+            }
+        }
+
         // Toggle fullscreen
         try self.set.put(
             alloc,

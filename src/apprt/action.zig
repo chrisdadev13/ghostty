@@ -349,6 +349,10 @@ pub const Action = union(Key) {
     /// Create a new horizontal tab within the current sidebar task.
     new_sidebar_tab,
 
+    /// Jump to a specific horizontal tab within the current sidebar task.
+    /// Must handle the scenario that the tab value is invalid.
+    goto_horizontal_tab: GotoHorizontalTab,
+
     /// Sync with: ghostty_action_tag_e
     pub const Key = enum(c_int) {
         quit,
@@ -418,6 +422,7 @@ pub const Action = union(Key) {
         readonly,
         copy_title_to_clipboard,
         new_sidebar_tab,
+        goto_horizontal_tab,
 
         test "ghostty.h Action.Key" {
             try lib.checkGhosttyHEnum(Key, "GHOSTTY_ACTION_");
@@ -570,6 +575,12 @@ pub const GotoTab = enum(c_int) {
     // test "ghostty.h GotoTab" {
     //     try lib.checkGhosttyHEnum(GotoTab, "GHOSTTY_GOTO_TAB_");
     // }
+};
+
+/// The horizontal tab to jump to within the current sidebar task.
+/// Positive values are 1-based indices.
+pub const GotoHorizontalTab = enum(c_int) {
+    _,
 };
 
 /// The fullscreen mode to toggle to if we're moving to fullscreen.

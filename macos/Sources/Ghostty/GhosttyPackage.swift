@@ -399,6 +399,10 @@ extension Ghostty.Notification {
     static let ghosttyGotoTab = Notification.Name("com.mitchellh.ghostty.gotoTab")
     static let GotoTabKey = ghosttyGotoTab.rawValue
 
+    /// Goto horizontal tab. Has tab index in the userinfo.
+    static let ghosttyGotoHorizontalTab = Notification.Name("com.mitchellh.ghostty.gotoHorizontalTab")
+    static let GotoHorizontalTabKey = ghosttyGotoHorizontalTab.rawValue
+
     /// New tab. Has base surface config requested in userinfo.
     static let ghosttyNewTab = Notification.Name("com.mitchellh.ghostty.newTab")
 

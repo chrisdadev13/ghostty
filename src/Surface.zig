@@ -5616,6 +5616,12 @@ pub fn performBindingAction(self: *Surface, action: input.Binding.Action) !bool 
             {},
         ),
 
+        .goto_horizontal_tab => |v| return try self.rt_app.performAction(
+            .{ .surface = self },
+            .goto_horizontal_tab,
+            @enumFromInt(v),
+        ),
+
         .toggle_background_opacity => return try self.rt_app.performAction(
             .{ .surface = self },
             .toggle_background_opacity,
