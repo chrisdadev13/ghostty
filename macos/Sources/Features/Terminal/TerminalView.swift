@@ -39,6 +39,9 @@ protocol TerminalViewModel: ObservableObject {
     /// The list of tasks for the sidebar.
     var sidebarTabs: [SidebarTab] { get set }
 
+    /// The sidebar sort mode.
+    var sidebarSortMode: SidebarSortMode { get set }
+
     /// Refresh the sidebar task list.
     func refreshSidebarTabs()
 
@@ -130,6 +133,7 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
                     SidebarView(
                         tabs: viewModel.sidebarTabs,
                         backgroundColor: ghostty.config.backgroundColor,
+                        sortMode: $viewModel.sidebarSortMode,
                         onSelectTab: { id in
                             viewModel.switchToTask(id: id)
                         },

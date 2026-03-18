@@ -1,8 +1,22 @@
 import SwiftUI
 
+/// A flat list item for the sidebar, either a section header or a task row.
+private enum SidebarListItem: Identifiable {
+    case header(StatusGroup)
+    case tab(SidebarTab)
+
+    var id: String {
+        switch self {
+        case .header(let group): return "header-\(group)"
+        case .tab(let tab): return tab.id.uuidString
+        }
+    }
+}
+
 struct SidebarView: View {
     let tabs: [SidebarTab]
     let backgroundColor: Color
+    @Binding var sortMode: SidebarSortMode
     let onSelectTab: (UUID) -> Void
     let onNewTab: () -> Void
     let onRemoveTab: (UUID) -> Void
@@ -14,6 +28,21 @@ struct SidebarView: View {
         backgroundColor.opacity(0.85)
     }
 
+    /// Flat list of items for grouped mode: headers interspersed with tabs.
+    private var groupedItems: [SidebarListItem] {
+        var items: [SidebarListItem] = []
+        for group in StatusGroup.allCases {
+            let matching = tabs.filter { StatusGroup(from: $0.status) == group }
+            if !matching.isEmpty {
+                items.append(.header(group))
+                for tab in matching {
+                    items.append(.tab(tab))
+                }
+            }
+        }
+        return items
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             // Header
@@ -22,6 +51,15 @@ struct SidebarView: View {
                     .font(.headline)
                     .foregroundColor(.white.opacity(0.5))
                 Spacer()
+                Button {
+                    sortMode = sortMode.toggled
+                } label: {
+                    Image(systemName: sortMode.icon)
+                        .foregroundColor(.white.opacity(0.5))
+                }
+                .buttonStyle(.plain)
+                .help(sortMode == .recent ? "Group by status" : "Sort by recent")
+
                 Button(action: onNewTab) {
                     Image(systemName: "plus")
                         .foregroundColor(.white.opacity(0.5))
@@ -36,37 +74,70 @@ struct SidebarView: View {
 
             // Task list
             ScrollView {
-                LazyVStack(spacing: 0) {
-                    ForEach(tabs) { tab in
-                        SidebarTabRow(
-                            tab: tab,
-                            canClose: tabs.count > 1,
-                            backgroundColor: backgroundColor
-                        ) {
-                            onRemoveTab(tab.id)
+                VStack(spacing: 0) {
+                    switch sortMode {
+                    case .recent:
+                        ForEach(tabs) { tab in
+                            tabRow(tab)
                         }
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            onSelectTab(tab.id)
+                    case .status:
+                        ForEach(groupedItems) { item in
+                            switch item {
+                            case .header(let group):
+                                SidebarSectionHeader(group: group)
+                            case .tab(let tab):
+                                tabRow(tab)
+                            }
                         }
                     }
                 }
             }
         }
-        .frame(width: 200)
+        .frame(width: 240)
         .background(sidebarBackground)
+    }
+
+    @ViewBuilder
+    private func tabRow(_ tab: SidebarTab) -> some View {
+        SidebarTabRow(
+            tab: tab,
+            canClose: tabs.count > 1
+        ) {
+            onRemoveTab(tab.id)
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            onSelectTab(tab.id)
+        }
+    }
+}
+
+private struct SidebarSectionHeader: View {
+    let group: StatusGroup
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Circle()
+                .fill(group.color)
+                .frame(width: 6, height: 6)
+            Text(group.title)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(.white.opacity(0.4))
+            Spacer()
+        }
+        .padding(.horizontal, 12)
+        .padding(.top, 10)
+        .padding(.bottom, 4)
     }
 }
 
 private struct SidebarTabRow: View {
     let tab: SidebarTab
     let canClose: Bool
-    let backgroundColor: Color
     let onClose: () -> Void
 
     @State private var isHovered = false
 
-    /// Text color that contrasts with the terminal background
     private var textColor: Color {
         .white.opacity(tab.isSelected ? 0.9 : 0.5)
     }
@@ -78,12 +149,12 @@ private struct SidebarTabRow: View {
     var body: some View {
         HStack(spacing: 8) {
             // Status icon
-            Image(systemName: statusIcon)
-                .foregroundColor(tab.hasBell ? .yellow : secondaryTextColor)
+            Image(systemName: tab.status.icon)
+                .foregroundColor(tab.status.color)
                 .font(.system(size: 10))
                 .frame(width: 16)
 
-            // Title and subtitle
+            // Title and status
             VStack(alignment: .leading, spacing: 1) {
                 Text(tab.title)
                     .font(.system(size: 12))
@@ -91,14 +162,14 @@ private struct SidebarTabRow: View {
                     .truncationMode(.tail)
                     .foregroundColor(textColor)
 
-                Text("Running")
+                Text(tab.status.text)
                     .font(.system(size: 10))
-                    .foregroundColor(secondaryTextColor)
+                    .foregroundColor(statusSubtitleColor)
             }
 
             Spacer()
 
-            // Right side: close button on hover, or tab number
+            // Right side: close button on hover, or unseen dot
             if isHovered && canClose {
                 Button(action: onClose) {
                     Image(systemName: "xmark")
@@ -106,17 +177,10 @@ private struct SidebarTabRow: View {
                         .foregroundColor(secondaryTextColor)
                 }
                 .buttonStyle(.plain)
-            } else {
-                HStack(spacing: 4) {
-                    if tab.isSplit {
-                        Image(systemName: "rectangle.split.2x1")
-                            .font(.system(size: 9))
-                            .foregroundColor(secondaryTextColor)
-                    }
-                    Text("\(tab.index)")
-                        .font(.system(size: 10, design: .monospaced))
-                        .foregroundColor(secondaryTextColor)
-                }
+            } else if tab.hasUnseen {
+                Circle()
+                    .fill(Color.blue)
+                    .frame(width: 8, height: 8)
             }
         }
         .padding(.horizontal, 12)
@@ -127,10 +191,16 @@ private struct SidebarTabRow: View {
         }
     }
 
-    private var statusIcon: String {
-        if tab.hasBell {
-            return "bell.fill"
+    private var statusSubtitleColor: Color {
+        switch tab.status {
+        case .claudeInProgress:
+            return .orange.opacity(0.7)
+        case .claudeIdle:
+            return .green.opacity(0.7)
+        case .claudeNeedsInput:
+            return .blue.opacity(0.7)
+        default:
+            return secondaryTextColor
         }
-        return "circle.fill"
     }
 }

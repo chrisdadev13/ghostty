@@ -54,6 +54,9 @@ class BaseTerminalController: NSWindowController,
     /// The list of task entries for the sidebar display.
     @Published var sidebarTabs: [SidebarTab] = []
 
+    /// The sidebar sort mode, persisted in the view model so it survives SwiftUI re-renders.
+    @Published var sidebarSortMode: SidebarSortMode = .recent
+
     // MARK: - Sidebar Task Management
 
     /// Internal storage for sidebar tasks. Each task holds its own surface tree.
@@ -61,6 +64,8 @@ class BaseTerminalController: NSWindowController,
         let id: UUID
         var title: String
         var surfaceTree: SplitTree<Ghostty.SurfaceView>
+        var status: TaskStatus = .idle
+        var hasUnseen: Bool = false
     }
 
     /// All sidebar tasks.
@@ -109,6 +114,17 @@ class BaseTerminalController: NSWindowController,
 
     /// Cancellable for aggregating bell state across all surfaces in this controller.
     private var bellStateCancellable: AnyCancellable?
+
+    /// Timer for polling Claude Code status files.
+    private var claudeStatusTimer: Timer?
+
+    /// Directory where Claude Code status files are written by hooks.
+    private static let claudeStatusDir = "/tmp/ghostty-tasks"
+
+    /// Directory containing Ghostty helper scripts.
+    private static let helperDir: String = {
+        NSHomeDirectory() + "/.ghostty/bin"
+    }()
 
     /// An override title for the tab/window set by the user via prompt_tab_title.
     /// When set, this takes precedence over the computed title from the terminal.
@@ -160,16 +176,30 @@ class BaseTerminalController: NSWindowController,
 
         // Initialize our initial surface.
         guard let ghostty_app = ghostty.app else { preconditionFailure("app must be loaded") }
-        let initialTree = tree ?? .init(view: Ghostty.SurfaceView(ghostty_app, baseConfig: base))
-        self.surfaceTree = initialTree
 
-        // Create the first sidebar task from the initial surface tree.
+        // Create the first sidebar task, injecting env vars for Claude Code hook integration.
         let taskId = UUID()
+        let initialTree: SplitTree<Ghostty.SurfaceView>
+        if let tree = tree {
+            initialTree = tree
+        } else {
+            var surfaceConfig = base ?? Ghostty.SurfaceConfiguration()
+            surfaceConfig.environmentVariables["GHOSTTY_TASK_ID"] = taskId.uuidString
+            surfaceConfig.environmentVariables["GHOSTTY_TASK_STATUS_DIR"] = Self.claudeStatusDir
+            initialTree = .init(view: Ghostty.SurfaceView(ghostty_app, baseConfig: surfaceConfig))
+        }
+        self.surfaceTree = initialTree
         self.sidebarTaskEntries = [TaskEntry(id: taskId, title: "Task 1", surfaceTree: initialTree)]
         self.activeTaskId = taskId
 
         // Setup our bell state for the window
         setupBellNotificationPublisher()
+
+        // Setup Claude Code integration
+        Self.ensureClaudeHooks()
+        claudeStatusTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            self?.pollClaudeStatuses()
+        }
 
         // Setup our notifications for behaviors
         let center = NotificationCenter.default
@@ -877,11 +907,15 @@ class BaseTerminalController: NSWindowController,
         lastComputedTitle = to
         applyTitleToWindow()
 
-        // Update the active sidebar task's title
+        // Update the active sidebar task's title, but only if there's no
+        // Claude hook title (which is more stable and meaningful).
         if let activeId = activeTaskId,
            let index = sidebarTaskEntries.firstIndex(where: { $0.id == activeId }) {
-            sidebarTaskEntries[index].title = to
-            refreshSidebarTabs()
+            let titleFile = "\(Self.claudeStatusDir)/\(activeId.uuidString).title"
+            if !FileManager.default.fileExists(atPath: titleFile) {
+                sidebarTaskEntries[index].title = to
+                refreshSidebarTabs()
+            }
         }
     }
 
@@ -1469,9 +1503,10 @@ class BaseTerminalController: NSWindowController,
                 index: i + 1,
                 title: task.title,
                 isSelected: task.id == activeTaskId,
-                hasBell: false,
+                hasUnseen: task.hasUnseen,
                 isSplit: isSplit,
-                isZoomed: task.surfaceTree.zoomed != nil
+                isZoomed: task.surfaceTree.zoomed != nil,
+                status: task.status
             )
         }
     }
@@ -1482,22 +1517,35 @@ class BaseTerminalController: NSWindowController,
         // Save current task's tree
         saveActiveTaskTree()
 
+        // Generate task ID first so we can pass it as an env var
+        let taskId = UUID()
+
+        // Configure env vars for Claude Code hook integration
+        var surfaceConfig = config ?? Ghostty.SurfaceConfiguration()
+        surfaceConfig.environmentVariables["GHOSTTY_TASK_ID"] = taskId.uuidString
+        surfaceConfig.environmentVariables["GHOSTTY_TASK_STATUS_DIR"] = Self.claudeStatusDir
+
         // Create new surface and tree
-        let surfaceView = Ghostty.SurfaceView(ghostty_app, baseConfig: config)
+        let surfaceView = Ghostty.SurfaceView(ghostty_app, baseConfig: surfaceConfig)
         let tree = SplitTree<Ghostty.SurfaceView>(view: surfaceView)
 
         // Create task entry
-        let taskId = UUID()
         let task = TaskEntry(
             id: taskId,
             title: "Task \(sidebarTaskEntries.count + 1)",
             surfaceTree: tree
         )
-        sidebarTaskEntries.append(task)
+        sidebarTaskEntries.insert(task, at: 0)
 
         // Switch to new task
         activeTaskId = taskId
         self.surfaceTree = tree
+
+        // Focus the new surface so it receives keyboard input immediately
+        if let surface = tree.first {
+            focusedSurface = surface
+            Ghostty.moveFocus(to: surface)
+        }
 
         refreshSidebarTabs()
     }
@@ -1509,9 +1557,16 @@ class BaseTerminalController: NSWindowController,
         // Save current task's tree
         saveActiveTaskTree()
 
-        // Load the selected task
+        // Load the selected task and clear unseen
         activeTaskId = id
+        sidebarTaskEntries[taskIndex].hasUnseen = false
         self.surfaceTree = sidebarTaskEntries[taskIndex].surfaceTree
+
+        // Focus the surface so it receives keyboard input immediately
+        if let surface = sidebarTaskEntries[taskIndex].surfaceTree.first {
+            focusedSurface = surface
+            Ghostty.moveFocus(to: surface)
+        }
 
         refreshSidebarTabs()
     }
@@ -1520,6 +1575,11 @@ class BaseTerminalController: NSWindowController,
         guard sidebarTaskEntries.count > 1 else { return }
         guard let index = sidebarTaskEntries.firstIndex(where: { $0.id == id }) else { return }
 
+        // Clean up status + title files
+        let statusFile = "\(Self.claudeStatusDir)/\(id.uuidString)"
+        try? FileManager.default.removeItem(atPath: statusFile)
+        try? FileManager.default.removeItem(atPath: "\(statusFile).title")
+
         sidebarTaskEntries.remove(at: index)
 
         // If we removed the active task, switch to another
@@ -1527,6 +1587,12 @@ class BaseTerminalController: NSWindowController,
             let newIndex = min(index, sidebarTaskEntries.count - 1)
             activeTaskId = sidebarTaskEntries[newIndex].id
             self.surfaceTree = sidebarTaskEntries[newIndex].surfaceTree
+
+            // Focus the surface so it receives keyboard input immediately
+            if let surface = sidebarTaskEntries[newIndex].surfaceTree.first {
+                focusedSurface = surface
+                Ghostty.moveFocus(to: surface)
+            }
         }
 
         refreshSidebarTabs()
@@ -1536,6 +1602,205 @@ class BaseTerminalController: NSWindowController,
         guard let activeId = activeTaskId,
               let index = sidebarTaskEntries.firstIndex(where: { $0.id == activeId }) else { return }
         sidebarTaskEntries[index].surfaceTree = self.surfaceTree
+    }
+
+    // MARK: - Claude Code Integration
+
+    /// Installs a hook script and registers it in ~/.claude/settings.json
+    /// so Claude Code reports status changes via file writes that Ghostty polls.
+    private static func ensureClaudeHooks() {
+        let hookScript = helperDir + "/ghostty-claude-hook.sh"
+        let claudeSettings = NSHomeDirectory() + "/.claude/settings.json"
+
+        // Step 1: Write the hook script
+        try? FileManager.default.createDirectory(
+            atPath: helperDir,
+            withIntermediateDirectories: true
+        )
+
+        let script = """
+        #!/bin/sh
+        # Ghostty sidebar status hook for Claude Code.
+        [ -z "$GHOSTTY_TASK_ID" ] || [ -z "$GHOSTTY_TASK_STATUS_DIR" ] && exit 0
+        mkdir -p "$GHOSTTY_TASK_STATUS_DIR"
+        SF="$GHOSTTY_TASK_STATUS_DIR/$GHOSTTY_TASK_ID"
+        printf '%s' "$1" > "$SF"
+        # Capture prompt as title once (skip reading stdin on subsequent PostToolUse calls)
+        if [ "$1" = "running" ] && [ ! -f "${SF}.title" ]; then
+            T=$(cat | jq -r '.prompt // .message // .content // empty' 2>/dev/null | head -1 | cut -c1-60)
+            [ -n "$T" ] && printf '%s' "$T" > "${SF}.title"
+        fi
+        exit 0
+        """
+
+        let scriptChanged = (try? String(contentsOfFile: hookScript, encoding: .utf8)) != script
+        if scriptChanged {
+            try? script.write(toFile: hookScript, atomically: true, encoding: .utf8)
+            try? FileManager.default.setAttributes(
+                [.posixPermissions: 0o755],
+                ofItemAtPath: hookScript
+            )
+        }
+
+        // Step 2: Ensure hooks are registered in ~/.claude/settings.json
+        ensureClaudeSettingsHooks(hookScript: hookScript, settingsPath: claudeSettings)
+    }
+
+    /// Merges Ghostty status hooks into the Claude Code settings file.
+    private static func ensureClaudeSettingsHooks(hookScript: String, settingsPath: String) {
+        // Read existing settings or start fresh
+        var settings: [String: Any] = [:]
+        if let data = FileManager.default.contents(atPath: settingsPath),
+           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            settings = json
+        }
+
+        var hooks = settings["hooks"] as? [String: Any] ?? [:]
+
+        // The hook entries we want to install. Each maps a Claude Code event
+        // to a status string written to the task status file.
+        // - matcher: if non-nil, only fire for matching event subtypes
+        let hookEntries: [(event: String, status: String, matcher: String?)] = [
+            ("UserPromptSubmit", "running", nil),    // User submitted prompt → Claude working
+            ("PostToolUse", "running", nil),         // Tool completed → still working
+            ("PermissionRequest", "needs_input", nil), // Permission dialog shown → needs input
+            ("Stop", "idle", nil),                   // Claude finished a turn → done
+            ("SessionEnd", "idle", nil),             // Claude exited → done
+        ]
+
+        let marker = "ghostty-sidebar-status"
+        var changed = false
+
+        for entry in hookEntries {
+            var eventHooks = hooks[entry.event] as? [[String: Any]] ?? []
+            let expectedCommand = "\(hookScript) \(entry.status) # \(marker)"
+
+            // Find existing hook by marker
+            let existingIndex = eventHooks.firstIndex { hookGroup in
+                guard let innerHooks = hookGroup["hooks"] as? [[String: Any]] else { return false }
+                return innerHooks.contains { h in
+                    (h["command"] as? String)?.contains(marker) == true
+                }
+            }
+
+            if let idx = existingIndex {
+                // Check if command needs updating
+                let currentHooks = eventHooks[idx]["hooks"] as? [[String: Any]]
+                let currentCommand = currentHooks?.first?["command"] as? String
+                if currentCommand != expectedCommand {
+                    var hookGroup: [String: Any] = [
+                        "hooks": [[
+                            "type": "command",
+                            "command": expectedCommand,
+                        ]]
+                    ]
+                    if let m = entry.matcher { hookGroup["matcher"] = m }
+                    eventHooks[idx] = hookGroup
+                    hooks[entry.event] = eventHooks
+                    changed = true
+                }
+            } else {
+                var hookGroup: [String: Any] = [
+                    "hooks": [[
+                        "type": "command",
+                        "command": expectedCommand,
+                    ]]
+                ]
+                if let m = entry.matcher { hookGroup["matcher"] = m }
+                eventHooks.append(hookGroup)
+                hooks[entry.event] = eventHooks
+                changed = true
+            }
+        }
+
+        if changed {
+            settings["hooks"] = hooks
+
+            // Ensure ~/.claude directory exists
+            let claudeDir = (settingsPath as NSString).deletingLastPathComponent
+            try? FileManager.default.createDirectory(
+                atPath: claudeDir,
+                withIntermediateDirectories: true
+            )
+
+            if let data = try? JSONSerialization.data(
+                withJSONObject: settings,
+                options: [.prettyPrinted, .sortedKeys]
+            ) {
+                try? data.write(to: URL(fileURLWithPath: settingsPath))
+            }
+        }
+    }
+
+    /// Polls status files written by Claude Code hooks and updates task entries.
+    private func pollClaudeStatuses() {
+        var changed = false
+        var moveToTopId: UUID?
+
+        for i in sidebarTaskEntries.indices {
+            let statusFile = "\(Self.claudeStatusDir)/\(sidebarTaskEntries[i].id.uuidString)"
+            let newStatus: TaskStatus
+
+            if let contents = try? String(contentsOfFile: statusFile, encoding: .utf8)
+                .trimmingCharacters(in: .whitespacesAndNewlines) {
+                switch contents {
+                case "running":
+                    newStatus = .claudeInProgress
+                case "idle":
+                    newStatus = .claudeIdle
+                case "needs_input":
+                    newStatus = .claudeNeedsInput
+                default:
+                    newStatus = .running
+                }
+            } else {
+                // No status file — keep current status unless it was a claude state
+                // (the file may have been cleaned up on session end)
+                switch sidebarTaskEntries[i].status {
+                case .claudeInProgress, .claudeNeedsInput:
+                    newStatus = .claudeIdle
+                case .claudeIdle:
+                    newStatus = .claudeIdle
+                default:
+                    newStatus = sidebarTaskEntries[i].status
+                }
+            }
+
+            if sidebarTaskEntries[i].status != newStatus {
+                let oldStatus = sidebarTaskEntries[i].status
+                sidebarTaskEntries[i].status = newStatus
+                // Mark unseen if this isn't the active task
+                if sidebarTaskEntries[i].id != activeTaskId {
+                    sidebarTaskEntries[i].hasUnseen = true
+                }
+                // Move to top when Claude starts working (new prompt sent)
+                if newStatus == .claudeInProgress && oldStatus != .claudeInProgress && i > 0 {
+                    moveToTopId = sidebarTaskEntries[i].id
+                }
+                changed = true
+            }
+
+            // Check for session title from Claude Code
+            let titleFile = "\(statusFile).title"
+            if let title = try? String(contentsOfFile: titleFile, encoding: .utf8)
+                .trimmingCharacters(in: .whitespacesAndNewlines),
+               !title.isEmpty,
+               sidebarTaskEntries[i].title != title {
+                sidebarTaskEntries[i].title = title
+                changed = true
+            }
+        }
+
+        // Reorder after the loop to avoid mutating during iteration
+        if let id = moveToTopId,
+           let idx = sidebarTaskEntries.firstIndex(where: { $0.id == id }) {
+            let task = sidebarTaskEntries.remove(at: idx)
+            sidebarTaskEntries.insert(task, at: 0)
+        }
+
+        if changed {
+            refreshSidebarTabs()
+        }
     }
 
     @IBAction func find(_ sender: Any) {
