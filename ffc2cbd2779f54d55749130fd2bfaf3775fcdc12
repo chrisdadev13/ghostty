@@ -1,0 +1,38 @@
+src/config/Config.zig
+  fd5ef246a42f6fd9 6934
+macos/Sources/Features/Sidebar/SidebarView.swift
+  7bd523b935bbf6ee 70-71
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.15",
+  "base_commit_sha": "ffc2cbd2779f54d55749130fd2bfaf3775fcdc12",
+  "prompts": {
+    "7bd523b935bbf6ee": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7d1b8915-09c8-45a9-a18b-f4db18a59669",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Chris <92900301+chrisdadev13@users.noreply.github.com>",
+      "messages": [],
+      "total_additions": 4,
+      "total_deletions": 3,
+      "accepted_lines": 2,
+      "overriden_lines": 0
+    },
+    "fd5ef246a42f6fd9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "873d9987-1720-42f2-8472-1aa72f902d0e",
+        "model": "claude-haiku-4-5-20251001"
+      },
+      "human_author": "Chris <92900301+chrisdadev13@users.noreply.github.com>",
+      "messages": [],
+      "total_additions": 1,
+      "total_deletions": 1,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    }
+  }
+}
