@@ -1,0 +1,41 @@
+src/input/command.zig
+  3eee9135b1ee9fff 723
+include/ghostty.h
+  3eee9135b1ee9fff 930
+macos/Sources/Features/Terminal/TerminalController.swift
+  3eee9135b1ee9fff 659-665
+src/apprt/action.zig
+  3eee9135b1ee9fff 352-355,429
+macos/Sources/Features/Terminal/BaseTerminalController.swift
+  3eee9135b1ee9fff 254-256,679-687
+macos/Sources/Ghostty/GhosttyPackage.swift
+  3eee9135b1ee9fff 369
+src/input/Binding.zig
+  3eee9135b1ee9fff 773-776,1389
+src/config/Config.zig
+  3eee9135b1ee9fff 6938-6944
+src/Surface.zig
+  3eee9135b1ee9fff 5619-5624
+macos/Sources/Ghostty/Ghostty.App.swift
+  3eee9135b1ee9fff 590-592,1068-1095
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.15",
+  "base_commit_sha": "362ec91444c40e298dbe1f54f75becc057593412",
+  "prompts": {
+    "3eee9135b1ee9fff": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bcc13149-bad8-4464-94a5-9e03f96075fc",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Chris <92900301+chrisdadev13@users.noreply.github.com>",
+      "messages": [],
+      "total_additions": 78,
+      "total_deletions": 0,
+      "accepted_lines": 78,
+      "overriden_lines": 0
+    }
+  }
+}
