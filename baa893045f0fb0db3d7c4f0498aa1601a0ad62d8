@@ -1,0 +1,23 @@
+macos/Sources/Features/Sidebar/SidebarView.swift
+  7bd523b935bbf6ee 71
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.15",
+  "base_commit_sha": "baa893045f0fb0db3d7c4f0498aa1601a0ad62d8",
+  "prompts": {
+    "7bd523b935bbf6ee": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7d1b8915-09c8-45a9-a18b-f4db18a59669",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Chris <92900301+chrisdadev13@users.noreply.github.com>",
+      "messages": [],
+      "total_additions": 2,
+      "total_deletions": 2,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    }
+  }
+}
