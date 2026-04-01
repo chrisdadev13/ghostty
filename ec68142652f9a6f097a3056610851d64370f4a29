@@ -1,0 +1,40 @@
+macos/Sources/Features/Terminal/BaseTerminalController.swift
+  0d0032ac403189db 79,148,972-995,1593,1839-1861,1985-1987,2016-2018,2020-2026
+macos/Sources/Features/Sidebar/SidebarView.swift
+  0d0032ac403189db 162,173-180
+macos/Sources/Features/Sidebar/SidebarTab.swift
+  0d0032ac403189db 106
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.23",
+  "base_commit_sha": "ec68142652f9a6f097a3056610851d64370f4a29",
+  "prompts": {
+    "0d0032ac403189db": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b12c9812-1c7e-4073-9c01-c097628ced6e",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Chris <92900301+chrisdadev13@users.noreply.github.com>",
+      "messages": [],
+      "total_additions": 228,
+      "total_deletions": 384,
+      "accepted_lines": 92,
+      "overriden_lines": 0
+    },
+    "21c495f046f3bf21": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1ed38761-f9bd-4e13-970a-8d3ef0efa1fb",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Chris <92900301+chrisdadev13@users.noreply.github.com>",
+      "messages": [],
+      "total_additions": 336,
+      "total_deletions": 20,
+      "accepted_lines": 118,
+      "overriden_lines": 0
+    }
+  }
+}
