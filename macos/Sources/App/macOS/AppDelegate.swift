@@ -735,9 +735,9 @@ class AppDelegate: NSObject,
         let configAny = notification.userInfo?[Ghostty.Notification.NewSurfaceConfigKey]
         let config = configAny as? Ghostty.SurfaceConfiguration
 
-        // When sidebar is active, create a sidebar task instead of a native tab.
+        // When sidebar is active, create a horizontal tab within the current task.
         if controller.sidebarIsShowing {
-            controller.createNewSidebarTask(withConfig: config)
+            controller.createNewHorizontalTab(withConfig: config)
             return
         }
 

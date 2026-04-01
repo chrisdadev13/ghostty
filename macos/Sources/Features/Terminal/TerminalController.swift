@@ -97,6 +97,11 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
             object: nil)
         center.addObserver(
             self,
+            selector: #selector(onGotoSidebarTab),
+            name: Ghostty.Notification.ghosttyGotoSidebarTab,
+            object: nil)
+        center.addObserver(
+            self,
             selector: #selector(onCloseTab),
             name: .ghosttyCloseTab,
             object: nil)
@@ -1526,18 +1531,16 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
                 }
             }
 
-            // For positive indices, switch sidebar tasks
-            if tabIndex > 0 && sidebarTabs.count > 1 {
-                let taskIndex = min(Int(tabIndex - 1), sidebarTabs.count - 1)
-                let targetTask = sidebarTabs[taskIndex]
-                switchToTask(id: targetTask.id)
+            // For positive indices, switch horizontal tabs
+            if tabIndex > 0 && horizontalTabs.count > 1 {
+                let htIndex = min(Int(tabIndex - 1), horizontalTabs.count - 1)
+                switchToHorizontalTab(id: horizontalTabs[htIndex].id)
                 return
             }
 
-            // For last, go to last sidebar task
-            if tabIndex == GHOSTTY_GOTO_TAB_LAST.rawValue && sidebarTabs.count > 1 {
-                let targetTask = sidebarTabs[sidebarTabs.count - 1]
-                switchToTask(id: targetTask.id)
+            // For last, go to last horizontal tab
+            if tabIndex == GHOSTTY_GOTO_TAB_LAST.rawValue && horizontalTabs.count > 1 {
+                switchToHorizontalTab(id: horizontalTabs[horizontalTabs.count - 1].id)
                 return
             }
         }
@@ -1599,9 +1602,34 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
         switchToHorizontalTab(id: horizontalTabs[finalIndex].id)
     }
 
+    @objc private func onGotoSidebarTab(notification: SwiftUI.Notification) {
+        guard let target = notification.object as? Ghostty.SurfaceView else { return }
+        guard target == self.focusedSurface else { return }
+
+        // Get the 1-based tab index from the notification
+        guard let tabIndexAny = notification.userInfo?[Ghostty.Notification.GotoSidebarTabKey] else { return }
+        guard let tabIndex = tabIndexAny as? Int else { return }
+        guard tabIndex >= 1 else { return }
+        guard sidebarTabs.count > 1 else { return }
+
+        // Convert to 0-based, clamp to max
+        let finalIndex = min(tabIndex - 1, sidebarTabs.count - 1)
+        switchToTask(id: sidebarTabs[finalIndex].id)
+    }
+
     @objc private func onCloseTab(notification: SwiftUI.Notification) {
         guard let target = notification.object as? Ghostty.SurfaceView else { return }
         guard surfaceTree.contains(target) else { return }
+
+        // When sidebar is active, close the current horizontal tab instead of the system tab.
+        if sidebarIsShowing, horizontalTabs.count > 1,
+           let activeId = activeTaskId,
+           let taskIndex = sidebarTaskEntries.firstIndex(where: { $0.id == activeId }) {
+            let tabId = sidebarTaskEntries[taskIndex].activeTabId
+            removeHorizontalTab(id: tabId)
+            return
+        }
+
         closeTab(self)
     }
 

@@ -780,6 +780,13 @@ pub const Action = union(enum) {
     /// this will go to the last horizontal tab.
     goto_horizontal_tab: usize,
 
+    /// Go to the sidebar task (vertical tab) with the specific index,
+    /// starting from 1.
+    ///
+    /// If the index is higher than the number of sidebar tasks,
+    /// this will go to the last sidebar task.
+    goto_sidebar_tab: usize,
+
     /// Toggle the quick terminal.
     ///
     /// The quick terminal, also known as the "Quake-style" or drop-down
@@ -1388,6 +1395,7 @@ pub const Action = union(enum) {
             .new_sidebar_tab,
             .close_sidebar_tab,
             .goto_horizontal_tab,
+            .goto_sidebar_tab,
             .toggle_background_opacity,
             .show_on_screen_keyboard,
             .reset_window_size,

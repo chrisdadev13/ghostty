@@ -6856,33 +6856,33 @@ pub const Keybinds = struct {
             );
         }
 
-        // Ctrl+N for goto horizontal tab N (within sidebar task)
+        // Ctrl+N for goto sidebar task N (vertical tabs)
         if (builtin.target.os.tag.isDarwin()) {
-            const ht_mods: inputpkg.Mods = .{ .ctrl = true };
-            const ht_start: u21 = '1';
-            const ht_end: u21 = '8';
-            comptime var ht_i: u21 = ht_start;
-            inline while (ht_i <= ht_end) : (ht_i += 1) {
+            const st_mods: inputpkg.Mods = .{ .ctrl = true };
+            const st_start: u21 = '1';
+            const st_end: u21 = '8';
+            comptime var st_i: u21 = st_start;
+            inline while (st_i <= st_end) : (st_i += 1) {
                 try self.set.putFlags(
                     alloc,
                     .{
                         .key = .{ .physical = @field(
                             inputpkg.Key,
-                            std.fmt.comptimePrint("digit_{u}", .{ht_i}),
+                            std.fmt.comptimePrint("digit_{u}", .{st_i}),
                         ) },
-                        .mods = ht_mods,
+                        .mods = st_mods,
                     },
-                    .{ .goto_horizontal_tab = (ht_i - ht_start) + 1 },
+                    .{ .goto_sidebar_tab = (st_i - st_start) + 1 },
                     .{ .performable = true },
                 );
 
                 try self.set.putFlags(
                     alloc,
                     .{
-                        .key = .{ .unicode = ht_i },
-                        .mods = ht_mods,
+                        .key = .{ .unicode = st_i },
+                        .mods = st_mods,
                     },
-                    .{ .goto_horizontal_tab = (ht_i - ht_start) + 1 },
+                    .{ .goto_sidebar_tab = (st_i - st_start) + 1 },
                     .{ .performable = true },
                 );
             }
@@ -6928,18 +6928,18 @@ pub const Keybinds = struct {
                 .{ .select_all = {} },
             );
 
-            // New horizontal tab within the current sidebar task
+            // Toggle sidebar
+            try self.set.put(
+                alloc,
+                .{ .key = .{ .unicode = 'e' }, .mods = .{ .super = true, .shift = true } },
+                .toggle_sidebar,
+            );
+
+            // Ctrl+T: New sidebar task (vertical tab)
             try self.set.putFlags(
                 alloc,
                 .{ .key = .{ .unicode = 't' }, .mods = .{ .ctrl = true } },
                 .{ .new_sidebar_tab = {} },
-                .{ .performable = true },
-            );
-            // Close horizontal tab within the current sidebar task
-            try self.set.putFlags(
-                alloc,
-                .{ .key = .{ .unicode = 'w' }, .mods = .{ .ctrl = true } },
-                .{ .close_sidebar_tab = {} },
                 .{ .performable = true },
             );
             try self.set.putFlags(

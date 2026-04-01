@@ -81,7 +81,7 @@ private struct HorizontalTabItemView: View {
 
             // Right: keyboard shortcut indicator
             if tab.index <= 8 {
-                Text("⌃\(tab.index)")
+                Text("⌘\(tab.index)")
                     .font(.system(size: 10))
                     .foregroundColor(.white.opacity(tab.isSelected ? 0.35 : 0.2))
             } else {

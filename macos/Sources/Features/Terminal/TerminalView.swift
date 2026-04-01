@@ -42,6 +42,9 @@ protocol TerminalViewModel: ObservableObject {
     /// The sidebar sort mode.
     var sidebarSortMode: SidebarSortMode { get set }
 
+    /// The sidebar width.
+    var sidebarWidth: CGFloat { get set }
+
     /// Refresh the sidebar task list.
     func refreshSidebarTabs()
 
@@ -156,6 +159,7 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
                         tabs: viewModel.sidebarTabs,
                         backgroundColor: ghostty.config.backgroundColor,
                         sortMode: $viewModel.sidebarSortMode,
+                        sidebarWidth: $viewModel.sidebarWidth,
                         onSelectTab: { id in
                             viewModel.switchToTask(id: id)
                         },
@@ -166,7 +170,7 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
                             viewModel.removeTask(id: id)
                         }
                     )
-                    Divider()
+                    SidebarDivider(sidebarWidth: $viewModel.sidebarWidth)
                 }
 
                 ZStack {

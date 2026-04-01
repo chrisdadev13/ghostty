@@ -593,6 +593,10 @@ typedef enum {
 // Positive values are 1-based tab indices.
 typedef int ghostty_action_goto_horizontal_tab_e;
 
+// apprt.action.GotoSidebarTab
+// Positive values are 1-based tab indices.
+typedef int ghostty_action_goto_sidebar_tab_e;
+
 // apprt.action.Fullscreen
 typedef enum {
   GHOSTTY_FULLSCREEN_NATIVE,
@@ -929,6 +933,7 @@ typedef enum {
   GHOSTTY_ACTION_NEW_SIDEBAR_TAB,
   GHOSTTY_ACTION_CLOSE_SIDEBAR_TAB,
   GHOSTTY_ACTION_GOTO_HORIZONTAL_TAB,
+  GHOSTTY_ACTION_GOTO_SIDEBAR_TAB,
 } ghostty_action_tag_e;
 
 typedef union {
@@ -971,6 +976,7 @@ typedef union {
   ghostty_action_search_selected_s search_selected;
   ghostty_action_readonly_e readonly;
   ghostty_action_goto_horizontal_tab_e goto_horizontal_tab;
+  ghostty_action_goto_sidebar_tab_e goto_sidebar_tab;
 } ghostty_action_u;
 
 typedef struct {

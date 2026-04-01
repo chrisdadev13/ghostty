@@ -593,6 +593,9 @@ extension Ghostty {
             case GHOSTTY_ACTION_GOTO_HORIZONTAL_TAB:
                 return gotoHorizontalTab(app, target: target, tab: action.action.goto_horizontal_tab)
 
+            case GHOSTTY_ACTION_GOTO_SIDEBAR_TAB:
+                return gotoSidebarTab(app, target: target, tab: action.action.goto_sidebar_tab)
+
             case GHOSTTY_ACTION_TOGGLE_MAXIMIZE:
                 toggleMaximize(app, target: target)
 
@@ -1077,9 +1080,9 @@ extension Ghostty {
                 guard let surface = target.target.surface else { return false }
                 guard let surfaceView = self.surfaceView(from: surface) else { return false }
 
-                // Only performable when sidebar is showing with multiple horizontal tabs
+                // Only performable when sidebar is showing with multiple tasks
                 guard let controller = surfaceView.window?.windowController as? BaseTerminalController else { return false }
-                guard controller.sidebarIsShowing && controller.horizontalTabs.count > 1 else { return false }
+                guard controller.sidebarIsShowing && controller.sidebarTabs.count > 1 else { return false }
 
                 NotificationCenter.default.post(
                     name: .ghosttyCloseSidebarTab,
@@ -1115,6 +1118,37 @@ extension Ghostty {
                         object: surfaceView,
                         userInfo: [
                             Notification.GotoHorizontalTabKey: Int(tab),
+                        ]
+                    )
+
+                default:
+                    assertionFailure()
+                }
+
+                return true
+        }
+
+        private static func gotoSidebarTab(
+            _ app: ghostty_app_t,
+            target: ghostty_target_s,
+            tab: ghostty_action_goto_sidebar_tab_e) -> Bool {
+                switch target.tag {
+                case GHOSTTY_TARGET_APP:
+                    Ghostty.logger.warning("goto sidebar tab does nothing with an app target")
+                    return false
+
+                case GHOSTTY_TARGET_SURFACE:
+                    guard let surface = target.target.surface else { return false }
+                    guard let surfaceView = self.surfaceView(from: surface) else { return false }
+
+                    guard let controller = surfaceView.window?.windowController as? BaseTerminalController else { return false }
+                    guard controller.sidebarIsShowing else { return false }
+
+                    NotificationCenter.default.post(
+                        name: Notification.ghosttyGotoSidebarTab,
+                        object: surfaceView,
+                        userInfo: [
+                            Notification.GotoSidebarTabKey: Int(tab),
                         ]
                     )
 

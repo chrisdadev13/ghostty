@@ -17,6 +17,7 @@ struct SidebarView: View {
     let tabs: [SidebarTab]
     let backgroundColor: Color
     @Binding var sortMode: SidebarSortMode
+    @Binding var sidebarWidth: CGFloat
     let onSelectTab: (UUID) -> Void
     let onNewTab: () -> Void
     let onRemoveTab: (UUID) -> Void
@@ -78,8 +79,8 @@ struct SidebarView: View {
                 VStack(spacing: 0) {
                     switch sortMode {
                     case .recent:
-                        ForEach(tabs) { tab in
-                            tabRow(tab)
+                        ForEach(Array(tabs.enumerated()), id: \.element.id) { index, tab in
+                            tabRow(tab, shortcutIndex: index < 8 ? index + 1 : nil)
                         }
                     case .status:
                         ForEach(groupedItems) { item in
@@ -87,22 +88,24 @@ struct SidebarView: View {
                             case .header(let group):
                                 SidebarSectionHeader(group: group)
                             case .tab(let tab):
-                                tabRow(tab)
+                                let index = tabs.firstIndex(where: { $0.id == tab.id })
+                                tabRow(tab, shortcutIndex: index != nil && index! < 8 ? index! + 1 : nil)
                             }
                         }
                     }
                 }
             }
         }
-        .frame(width: 240)
+        .frame(width: sidebarWidth)
         .background(sidebarBackground)
     }
 
     @ViewBuilder
-    private func tabRow(_ tab: SidebarTab) -> some View {
+    private func tabRow(_ tab: SidebarTab, shortcutIndex: Int?) -> some View {
         SidebarTabRow(
             tab: tab,
-            canClose: tabs.count > 1
+            canClose: tabs.count > 1,
+            shortcutIndex: shortcutIndex
         ) {
             onRemoveTab(tab.id)
         }
@@ -135,6 +138,7 @@ private struct SidebarSectionHeader: View {
 private struct SidebarTabRow: View {
     let tab: SidebarTab
     let canClose: Bool
+    let shortcutIndex: Int?
     let onClose: () -> Void
 
     @State private var isHovered = false
@@ -170,7 +174,7 @@ private struct SidebarTabRow: View {
 
             Spacer()
 
-            // Right side: close button on hover, or unseen dot
+            // Right side: close button on hover, shortcut hint, or unseen dot
             if isHovered && canClose {
                 Button(action: onClose) {
                     Image(systemName: "xmark")
@@ -182,6 +186,10 @@ private struct SidebarTabRow: View {
                 Circle()
                     .fill(Color.blue)
                     .frame(width: 8, height: 8)
+            } else if let index = shortcutIndex {
+                Text("⌃\(index)")
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundColor(.white.opacity(0.25))
             }
         }
         .padding(.horizontal, 12)
@@ -203,5 +211,41 @@ private struct SidebarTabRow: View {
         default:
             return secondaryTextColor
         }
+    }
+}
+
+/// A draggable divider for resizing the sidebar.
+struct SidebarDivider: View {
+    @Binding var sidebarWidth: CGFloat
+
+    private let minWidth: CGFloat = 160
+    private let maxWidth: CGFloat = 400
+    private let visibleSize: CGFloat = 1
+    private let hitAreaSize: CGFloat = 6
+
+    var body: some View {
+        ZStack {
+            Color.clear
+                .frame(width: visibleSize + hitAreaSize)
+                .contentShape(Rectangle())
+            Rectangle()
+                .fill(Color.gray.opacity(0.3))
+                .frame(width: visibleSize)
+        }
+        .backport.pointerStyle(.resizeLeftRight)
+        .onHover { isHovered in
+            if #available(macOS 15, *) { return }
+            if isHovered {
+                NSCursor.resizeLeftRight.push()
+            } else {
+                NSCursor.pop()
+            }
+        }
+        .gesture(
+            DragGesture(coordinateSpace: .global)
+                .onChanged { gesture in
+                    sidebarWidth = min(max(minWidth, gesture.location.x), maxWidth)
+                }
+        )
     }
 }

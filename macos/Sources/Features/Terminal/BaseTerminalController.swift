@@ -51,6 +51,9 @@ class BaseTerminalController: NSWindowController,
     /// This can be set to show/hide the sidebar.
     @Published var sidebarIsShowing: Bool = true
 
+    /// The width of the sidebar in points.
+    @Published var sidebarWidth: CGFloat = 240
+
     /// The list of task entries for the sidebar display.
     @Published var sidebarTabs: [SidebarTab] = []
 
@@ -689,16 +692,14 @@ class BaseTerminalController: NSWindowController,
     @objc private func ghosttyNewSidebarTab(_ notification: Notification) {
         guard let surfaceView = notification.object as? Ghostty.SurfaceView else { return }
         guard surfaceTree.contains(surfaceView) else { return }
-        createNewHorizontalTab()
+        createNewSidebarTask()
     }
 
     @objc private func ghosttyCloseSidebarTab(_ notification: Notification) {
         guard let surfaceView = notification.object as? Ghostty.SurfaceView else { return }
         guard surfaceTree.contains(surfaceView) else { return }
-        guard let activeId = activeTaskId,
-              let taskIndex = sidebarTaskEntries.firstIndex(where: { $0.id == activeId }) else { return }
-        let tabId = sidebarTaskEntries[taskIndex].activeTabId
-        removeHorizontalTab(id: tabId)
+        guard let activeId = activeTaskId else { return }
+        removeTask(id: activeId)
     }
 
     @objc private func ghosttyMaximizeDidToggle(_ notification: Notification) {
@@ -1850,6 +1851,7 @@ class BaseTerminalController: NSWindowController,
         let hookEntries: [(event: String, status: String, matcher: String?)] = [
             ("UserPromptSubmit", "running", nil),    // User submitted prompt → Claude working
             ("PostToolUse", "running", nil),         // Tool completed → still working
+            ("PreToolUse", "needs_input", "AskUserQuestion"), // Claude asking a question → needs input
             ("PermissionRequest", "needs_input", nil), // Permission dialog shown → needs input
             ("Stop", "idle", nil),                   // Claude finished a turn → done
             ("SessionEnd", "exited", nil),           // Claude Code process exited → idle

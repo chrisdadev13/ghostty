@@ -357,6 +357,10 @@ pub const Action = union(Key) {
     /// Must handle the scenario that the tab value is invalid.
     goto_horizontal_tab: GotoHorizontalTab,
 
+    /// Jump to a specific sidebar task (vertical tab) by index.
+    /// Must handle the scenario that the tab value is invalid.
+    goto_sidebar_tab: GotoSidebarTab,
+
     /// Sync with: ghostty_action_tag_e
     pub const Key = enum(c_int) {
         quit,
@@ -428,6 +432,7 @@ pub const Action = union(Key) {
         new_sidebar_tab,
         close_sidebar_tab,
         goto_horizontal_tab,
+        goto_sidebar_tab,
 
         test "ghostty.h Action.Key" {
             try lib.checkGhosttyHEnum(Key, "GHOSTTY_ACTION_");
@@ -585,6 +590,12 @@ pub const GotoTab = enum(c_int) {
 /// The horizontal tab to jump to within the current sidebar task.
 /// Positive values are 1-based indices.
 pub const GotoHorizontalTab = enum(c_int) {
+    _,
+};
+
+/// The sidebar task (vertical tab) to jump to.
+/// Positive values are 1-based indices.
+pub const GotoSidebarTab = enum(c_int) {
     _,
 };
 

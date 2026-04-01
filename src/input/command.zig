@@ -722,6 +722,7 @@ fn actionCommands(action: Action.Key) []const Command {
         .new_sidebar_tab,
         .close_sidebar_tab,
         .goto_horizontal_tab,
+        .goto_sidebar_tab,
         .previous_tab,
         .next_tab,
         .last_tab,
