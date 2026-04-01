@@ -1,0 +1,23 @@
+macos/Sources/Features/Terminal/BaseTerminalController.swift
+  5b5bde4bca3ebd53 978,983,994-998,1656-1659,1872-1876,2114-2125
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.3",
+  "base_commit_sha": "f27327f124299319ea870d32941ca5365a826cf9",
+  "prompts": {
+    "5b5bde4bca3ebd53": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a17182bf-86ff-4c80-a35a-39a80b3a1aba",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Chris",
+      "messages": [],
+      "total_additions": 28,
+      "total_deletions": 5,
+      "accepted_lines": 28,
+      "overriden_lines": 0
+    }
+  }
+}
