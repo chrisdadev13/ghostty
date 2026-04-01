@@ -1,0 +1,79 @@
+src/Surface.zig
+  dd1e24e7dfe2bdf5 5631-5636
+src/input/command.zig
+  dd1e24e7dfe2bdf5 725
+macos/Sources/Features/Sidebar/SidebarView.swift
+  0b0731e4cdac126b 20,99,216-251
+  dd1e24e7dfe2bdf5 82-83,91-92,104,107-108,141,177,189-192
+macos/Sources/Ghostty/GhosttyPackage.swift
+  dd1e24e7dfe2bdf5 407-410
+macos/Sources/App/macOS/AppDelegate.swift
+  dd1e24e7dfe2bdf5 738,740
+include/ghostty.h
+  dd1e24e7dfe2bdf5 596-599,936,979
+src/input/Binding.zig
+  dd1e24e7dfe2bdf5 783-789,1398
+src/config/Config.zig
+  dd1e24e7dfe2bdf5 6859,6861-6865,6871,6873,6875,6882-6883,6885,6931-6932,6934-6935,6937-6938
+macos/Sources/Features/Terminal/TerminalController.swift
+  dd1e24e7dfe2bdf5 100-102,1534-1537,1541-1543,1605-1619,1623-1632
+macos/Sources/Features/Terminal/BaseTerminalController.swift
+  dd1e24e7dfe2bdf5 695,701-702
+  0b0731e4cdac126b 54-56
+  7d45da0588245101 1854
+macos/Sources/Ghostty/Ghostty.App.swift
+  dd1e24e7dfe2bdf5 596-598,1083,1085,1131-1161
+macos/Sources/Features/Terminal/HorizontalTabBarView.swift
+  dd1e24e7dfe2bdf5 84
+src/apprt/action.zig
+  dd1e24e7dfe2bdf5 360-363,435,596-601
+macos/Sources/Features/Terminal/TerminalView.swift
+  0b0731e4cdac126b 162,173
+  dd1e24e7dfe2bdf5 45-47
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.23",
+  "base_commit_sha": "1dbe430b6dcf6c47bac7f1d199b547787cc3b9c1",
+  "prompts": {
+    "0b0731e4cdac126b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4a916a4b-bea7-4aa1-a4d5-be193e3f452e",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Chris <92900301+chrisdadev13@users.noreply.github.com>",
+      "messages": [],
+      "total_additions": 43,
+      "total_deletions": 2,
+      "accepted_lines": 43,
+      "overriden_lines": 0
+    },
+    "7d45da0588245101": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3e1f611e-5534-4c5b-b911-6ae3d5af0e56",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Chris <92900301+chrisdadev13@users.noreply.github.com>",
+      "messages": [],
+      "total_additions": 1,
+      "total_deletions": 0,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    },
+    "dd1e24e7dfe2bdf5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "310972ef-01a8-43bd-bdde-f21938e2eed7",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Chris <92900301+chrisdadev13@users.noreply.github.com>",
+      "messages": [],
+      "total_additions": 177,
+      "total_deletions": 71,
+      "accepted_lines": 151,
+      "overriden_lines": 0
+    }
+  }
+}
