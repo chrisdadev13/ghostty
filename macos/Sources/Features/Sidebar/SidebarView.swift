@@ -159,7 +159,7 @@ private struct SidebarTabRow: View {
                 .font(.system(size: 10))
                 .frame(width: 16)
 
-            // Title and status
+            // Title, status, and activity context
             VStack(alignment: .leading, spacing: 1) {
                 Text(tab.title)
                     .font(.system(size: 12))
@@ -170,6 +170,14 @@ private struct SidebarTabRow: View {
                 Text(tab.status.text)
                     .font(.system(size: 10))
                     .foregroundColor(statusSubtitleColor)
+
+                if let subtitle = tab.subtitle, !subtitle.isEmpty {
+                    Text(subtitle)
+                        .font(.system(size: 10))
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .foregroundColor(.white.opacity(0.25))
+                }
             }
 
             Spacer()

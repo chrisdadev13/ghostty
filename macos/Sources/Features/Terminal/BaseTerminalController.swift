@@ -76,6 +76,7 @@ class BaseTerminalController: NSWindowController,
     struct TaskEntry {
         let id: UUID
         var title: String
+        var subtitle: String?
         var tabs: [TaskTab]
         var activeTabId: UUID
         var status: TaskStatus = .idle
@@ -143,6 +144,7 @@ class BaseTerminalController: NSWindowController,
     private static let helperDir: String = {
         NSHomeDirectory() + "/.ghostty/bin"
     }()
+
 
     /// An override title for the tab/window set by the user via prompt_tab_title.
     /// When set, this takes precedence over the computed title from the terminal.
@@ -965,12 +967,32 @@ class BaseTerminalController: NSWindowController,
         lastComputedTitle = to
         applyTitleToWindow()
 
-        // Update the active sidebar task's title, but only if there's no
-        // Claude hook title (which is more stable and meaningful).
         if let activeId = activeTaskId,
            let index = sidebarTaskEntries.firstIndex(where: { $0.id == activeId }) {
-            let titleFile = "\(Self.claudeStatusDir)/\(activeId.uuidString).title"
-            if !FileManager.default.fileExists(atPath: titleFile) {
+
+            // Claude Code sets terminal titles like "⠂ Fix login bug" with a
+            // spinner prefix. Strip the prefix and use the descriptive part
+            // as the sidebar title, but skip the generic "Claude Code" title.
+            var cleanTitle = to
+            if let spaceIndex = cleanTitle.firstIndex(of: " "),
+               cleanTitle.startIndex < spaceIndex,
+               !cleanTitle[cleanTitle.startIndex].isASCII {
+                cleanTitle = String(cleanTitle[cleanTitle.index(after: spaceIndex)...])
+            }
+
+            let isClaudeState: Bool = {
+                switch sidebarTaskEntries[index].status {
+                case .claudeInProgress, .claudeIdle, .claudeNeedsInput: return true
+                default: return false
+                }
+            }()
+
+            if isClaudeState {
+                // Only update sidebar title with meaningful Claude titles
+                if cleanTitle != "Claude Code" && !cleanTitle.isEmpty {
+                    sidebarTaskEntries[index].title = cleanTitle
+                }
+            } else {
                 sidebarTaskEntries[index].title = to
             }
 
@@ -1568,6 +1590,7 @@ class BaseTerminalController: NSWindowController,
                 id: task.id,
                 index: i + 1,
                 title: task.title,
+                subtitle: task.subtitle,
                 isSelected: task.id == activeTaskId,
                 hasUnseen: task.hasUnseen,
                 isSplit: isSplit,
@@ -1813,11 +1836,29 @@ class BaseTerminalController: NSWindowController,
         SF="$GHOSTTY_TASK_STATUS_DIR/$GHOSTTY_TASK_ID"
         INPUT=$(cat)
         printf '%s' "$1" > "$SF"
-        # Capture prompt as title once (skip reading stdin on subsequent PostToolUse calls)
-        if [ "$1" = "running" ] && [ ! -f "${SF}.title" ]; then
-            T=$(echo "$INPUT" | jq -r '.prompt // .message // .content // empty' 2>/dev/null | head -1 | cut -c1-60)
-            [ -n "$T" ] && printf '%s' "$T" > "${SF}.title"
-        fi
+        # Extract activity context for sidebar subtitle
+        EVT=$(printf '%s' "$INPUT" | jq -r '.hook_event_name // empty' 2>/dev/null)
+        case "$EVT" in
+            PostToolUse)
+                TN=$(printf '%s' "$INPUT" | jq -r '.tool_name // empty' 2>/dev/null)
+                case "$TN" in
+                    Read)  SUB="Read $(printf '%s' "$INPUT" | jq -r '.tool_input.file_path // empty' 2>/dev/null | xargs basename 2>/dev/null)" ;;
+                    Edit)  SUB="Edited $(printf '%s' "$INPUT" | jq -r '.tool_input.file_path // empty' 2>/dev/null | xargs basename 2>/dev/null)" ;;
+                    Write) SUB="Wrote $(printf '%s' "$INPUT" | jq -r '.tool_input.file_path // empty' 2>/dev/null | xargs basename 2>/dev/null)" ;;
+                    Bash)  SUB="Ran: $(printf '%s' "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null | head -1 | cut -c1-50)" ;;
+                    Grep)  SUB="Searched: $(printf '%s' "$INPUT" | jq -r '.tool_input.pattern // empty' 2>/dev/null | cut -c1-40)" ;;
+                    Glob)  SUB="Found files: $(printf '%s' "$INPUT" | jq -r '.tool_input.pattern // empty' 2>/dev/null | cut -c1-40)" ;;
+                    *)     SUB="Used $TN" ;;
+                esac ;;
+            PermissionRequest)
+                TN=$(printf '%s' "$INPUT" | jq -r '.tool_name // empty' 2>/dev/null)
+                SUB="Permission: $TN" ;;
+            Stop)
+                SUB=$(printf '%s' "$INPUT" | jq -r '.last_assistant_message // empty' 2>/dev/null | head -1 | cut -c1-80) ;;
+            *)
+                SUB="" ;;
+        esac
+        [ -n "$SUB" ] && printf '%s' "$SUB" > "${SF}.subtitle"
         exit 0
         """
 
@@ -1941,6 +1982,9 @@ class BaseTerminalController: NSWindowController,
                     newStatus = .claudeNeedsInput
                 case "exited":
                     newStatus = .idle
+                    // Clean up so the next session starts fresh
+                    try? FileManager.default.removeItem(atPath: statusFile)
+                    try? FileManager.default.removeItem(atPath: "\(statusFile).subtitle")
                 default:
                     newStatus = .running
                 }
@@ -1969,13 +2013,17 @@ class BaseTerminalController: NSWindowController,
                 changed = true
             }
 
-            // Check for session title from Claude Code
-            let titleFile = "\(statusFile).title"
-            if let title = try? String(contentsOfFile: titleFile, encoding: .utf8)
+            // Read activity subtitle
+            let subtitleFile = "\(statusFile).subtitle"
+            if let subtitle = try? String(contentsOfFile: subtitleFile, encoding: .utf8)
                 .trimmingCharacters(in: .whitespacesAndNewlines),
-               !title.isEmpty,
-               sidebarTaskEntries[i].title != title {
-                sidebarTaskEntries[i].title = title
+               !subtitle.isEmpty {
+                if sidebarTaskEntries[i].subtitle != subtitle {
+                    sidebarTaskEntries[i].subtitle = subtitle
+                    changed = true
+                }
+            } else if sidebarTaskEntries[i].subtitle != nil {
+                sidebarTaskEntries[i].subtitle = nil
                 changed = true
             }
         }

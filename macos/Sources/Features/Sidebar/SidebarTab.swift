@@ -103,6 +103,7 @@ struct SidebarTab: Identifiable {
     let id: UUID
     let index: Int
     let title: String
+    let subtitle: String?
     let isSelected: Bool
     let hasUnseen: Bool
     let isSplit: Bool
