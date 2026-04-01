@@ -226,8 +226,9 @@ class BaseTerminalController: NSWindowController,
         // Setup our bell state for the window
         setupBellNotificationPublisher()
 
-        // Setup Claude Code integration
+        // Setup Claude Code and Opencode integration
         Self.ensureClaudeHooks()
+        Self.ensureOpencodePlugin()
         // Schedule on the main run loop in .common mode so the timer fires
         // regardless of which thread init runs on (e.g. window restoration)
         // and during all UI interaction modes.
@@ -1962,6 +1963,89 @@ class BaseTerminalController: NSWindowController,
         }
     }
 
+    /// Installs a Ghostty sidebar status plugin for Opencode.
+    /// Opencode discovers plugins automatically from ~/.config/opencode/plugins/.
+    private static func ensureOpencodePlugin() {
+        let pluginDir = NSHomeDirectory() + "/.config/opencode/plugins"
+        let pluginPath = pluginDir + "/ghostty-sidebar.ts"
+
+        let pluginSource = """
+        // Ghostty sidebar status plugin for Opencode.
+        // Auto-installed by Ghostty — do not edit manually.
+        import type { Plugin } from "@opencode-ai/plugin"
+        import { writeFileSync, mkdirSync, existsSync } from "fs"
+
+        export const GhosttySidebarPlugin: Plugin = async (ctx) => {
+          const taskId = process.env.GHOSTTY_TASK_ID
+          const statusDir = process.env.GHOSTTY_TASK_STATUS_DIR
+          if (!taskId || !statusDir) return {}
+
+          mkdirSync(statusDir, { recursive: true })
+          const statusFile = `${statusDir}/${taskId}`
+          let titleWritten = existsSync(`${statusFile}.title`)
+
+          const writeStatus = (status: string) => {
+            try { writeFileSync(statusFile, status) } catch {}
+          }
+
+          return {
+            event: async ({ event }) => {
+              switch (event.type) {
+                case "session.status":
+                  if (event.properties.status.type === "busy") {
+                    writeStatus("running")
+                  } else if (event.properties.status.type === "idle") {
+                    writeStatus("idle")
+                  }
+                  break
+                case "session.idle":
+                  writeStatus("idle")
+                  break
+                case "permission.updated":
+                  writeStatus("needs_input")
+                  break
+                case "session.updated":
+                  const t = (event as any).properties?.info?.title
+                  if (t) {
+                    try { writeFileSync(`${statusFile}.title`, t.slice(0, 60)) } catch {}
+                    titleWritten = true
+                  }
+                  break
+                case "session.deleted":
+                  writeStatus("exited")
+                  break
+              }
+            },
+            "chat.message": async (_input, output) => {
+              writeStatus("running")
+              if (titleWritten) return
+              const textPart = output.parts?.find((p) => p.type === "text")
+              const title = (textPart as any)?.text?.slice(0, 60)
+              if (title) {
+                try { writeFileSync(`${statusFile}.title`, title) } catch {}
+                titleWritten = true
+              }
+            },
+            "permission.ask": async (_input, _output) => {
+              writeStatus("needs_input")
+            },
+            "tool.execute.before": async (input, _output) => {
+              if (input.tool === "question") writeStatus("needs_input")
+            },
+          }
+        }
+        """
+
+        let pluginChanged = (try? String(contentsOfFile: pluginPath, encoding: .utf8)) != pluginSource
+        if pluginChanged {
+            try? FileManager.default.createDirectory(
+                atPath: pluginDir,
+                withIntermediateDirectories: true
+            )
+            try? pluginSource.write(toFile: pluginPath, atomically: true, encoding: .utf8)
+        }
+    }
+
     /// Polls status files written by Claude Code hooks and updates task entries.
     private func pollClaudeStatuses() {
         var changed = false
@@ -2011,6 +2095,19 @@ class BaseTerminalController: NSWindowController,
                     moveToTopId = sidebarTaskEntries[i].id
                 }
                 changed = true
+            }
+
+            // Read task title from file (for non-active tasks, since active
+            // tasks get their title from terminal title changes in titleDidChange).
+            if sidebarTaskEntries[i].id != activeTaskId {
+                let titleFile = "\(statusFile).title"
+                if let title = try? String(contentsOfFile: titleFile, encoding: .utf8)
+                    .trimmingCharacters(in: .whitespacesAndNewlines),
+                   !title.isEmpty,
+                   sidebarTaskEntries[i].title != title {
+                    sidebarTaskEntries[i].title = title
+                    changed = true
+                }
             }
 
             // Read activity subtitle
