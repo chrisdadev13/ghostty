@@ -975,10 +975,12 @@ class BaseTerminalController: NSWindowController,
             // spinner prefix. Strip the prefix and use the descriptive part
             // as the sidebar title, but skip the generic "Claude Code" title.
             var cleanTitle = to
+            var hasSpinnerPrefix = false
             if let spaceIndex = cleanTitle.firstIndex(of: " "),
                cleanTitle.startIndex < spaceIndex,
                !cleanTitle[cleanTitle.startIndex].isASCII {
                 cleanTitle = String(cleanTitle[cleanTitle.index(after: spaceIndex)...])
+                hasSpinnerPrefix = true
             }
 
             let isClaudeState: Bool = {
@@ -989,8 +991,11 @@ class BaseTerminalController: NSWindowController,
             }()
 
             if isClaudeState {
-                // Only update sidebar title with meaningful Claude titles
-                if cleanTitle != "Claude Code" && !cleanTitle.isEmpty {
+                // Only update sidebar title when the title comes from Claude Code
+                // (indicated by the spinner prefix). This prevents shell titles like
+                // "~/ghostty" from overwriting the Claude-generated title when the
+                // user switches to a non-Claude horizontal tab.
+                if hasSpinnerPrefix && cleanTitle != "Claude Code" && !cleanTitle.isEmpty {
                     sidebarTaskEntries[index].title = cleanTitle
                 }
             } else {
@@ -1648,6 +1653,10 @@ class BaseTerminalController: NSWindowController,
         guard id != activeTaskId else { return }
         guard let taskIndex = sidebarTaskEntries.firstIndex(where: { $0.id == id }) else { return }
 
+        // Cancel title subscriptions BEFORE changing active task to prevent
+        // the old surface's title from being attributed to the new task.
+        focusedSurfaceCancellables = []
+
         // Save current task's tree
         saveActiveTaskTree()
 
@@ -1860,6 +1869,11 @@ class BaseTerminalController: NSWindowController,
                 SUB="" ;;
         esac
         [ -n "$SUB" ] && printf '%s' "$SUB" > "${SF}.subtitle"
+        # Write task title from first user prompt (analogous to Opencode plugin behavior)
+        if [ "$EVT" = "UserPromptSubmit" ] && [ ! -f "${SF}.title" ]; then
+            TITLE=$(printf '%s' "$INPUT" | jq -r '.user_prompt // empty' 2>/dev/null | head -1 | cut -c1-60)
+            [ -n "$TITLE" ] && printf '%s' "$TITLE" > "${SF}.title"
+        fi
         exit 0
         """
 
@@ -2097,9 +2111,18 @@ class BaseTerminalController: NSWindowController,
                 changed = true
             }
 
-            // Read task title from file (for non-active tasks, since active
-            // tasks get their title from terminal title changes in titleDidChange).
-            if sidebarTaskEntries[i].id != activeTaskId {
+            // Read task title from file. For non-active tasks this is the
+            // only source of title updates. For active tasks in Claude state,
+            // also read from file so background title updates propagate even
+            // when a non-Claude horizontal tab is focused.
+            let isActiveTask = sidebarTaskEntries[i].id == activeTaskId
+            let isClaudeState: Bool = {
+                switch sidebarTaskEntries[i].status {
+                case .claudeInProgress, .claudeIdle, .claudeNeedsInput: return true
+                default: return false
+                }
+            }()
+            if !isActiveTask || isClaudeState {
                 let titleFile = "\(statusFile).title"
                 if let title = try? String(contentsOfFile: titleFile, encoding: .utf8)
                     .trimmingCharacters(in: .whitespacesAndNewlines),
