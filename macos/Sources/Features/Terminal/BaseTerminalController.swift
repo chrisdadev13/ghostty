@@ -69,6 +69,9 @@ class BaseTerminalController: NSWindowController,
     struct TaskTab: Identifiable {
         let id: UUID
         var title: String
+        /// The AI-generated sidebar title for this tab (e.g. from Claude Code spinner prefix).
+        /// Saved/restored when switching between horizontal tabs so each tab keeps its own title.
+        var sidebarTitle: String?
         var surfaceTree: SplitTree<Ghostty.SurfaceView>
     }
 
@@ -997,6 +1000,11 @@ class BaseTerminalController: NSWindowController,
                 // user switches to a non-Claude horizontal tab.
                 if hasSpinnerPrefix && cleanTitle != "Claude Code" && !cleanTitle.isEmpty {
                     sidebarTaskEntries[index].title = cleanTitle
+                    // Save per-tab so we can restore it when switching horizontal tabs
+                    let activeTabId = sidebarTaskEntries[index].activeTabId
+                    if let tabIndex = sidebarTaskEntries[index].tabs.firstIndex(where: { $0.id == activeTabId }) {
+                        sidebarTaskEntries[index].tabs[tabIndex].sidebarTitle = cleanTitle
+                    }
                 }
             } else {
                 sidebarTaskEntries[index].title = to
@@ -1611,6 +1619,10 @@ class BaseTerminalController: NSWindowController,
     func createNewSidebarTask(withConfig config: Ghostty.SurfaceConfiguration? = nil) {
         guard let ghostty_app = ghostty.app else { return }
 
+        // Cancel title subscriptions BEFORE changing active task to prevent
+        // the old surface's title from being attributed to the new task.
+        focusedSurfaceCancellables = []
+
         // Save current task's tree
         saveActiveTaskTree()
 
@@ -1710,6 +1722,15 @@ class BaseTerminalController: NSWindowController,
         let activeTabId = sidebarTaskEntries[taskIndex].activeTabId
         guard let tabIndex = sidebarTaskEntries[taskIndex].tabs.firstIndex(where: { $0.id == activeTabId }) else { return }
         sidebarTaskEntries[taskIndex].tabs[tabIndex].surfaceTree = self.surfaceTree
+
+        // Save current sidebar title to .title file so the poller picks it up
+        // when the task becomes inactive. This ensures the task displays the title
+        // from whichever horizontal tab was last active.
+        let statusFile = "\(Self.claudeStatusDir)/\(activeId.uuidString)"
+        let title = sidebarTaskEntries[taskIndex].title
+        if !title.isEmpty {
+            try? title.write(toFile: "\(statusFile).title", atomically: true, encoding: .utf8)
+        }
     }
 
     // MARK: - Horizontal Tab Management
@@ -1756,6 +1777,10 @@ class BaseTerminalController: NSWindowController,
         guard sidebarTaskEntries[taskIndex].activeTabId != id else { return }
         guard sidebarTaskEntries[taskIndex].tabs.contains(where: { $0.id == id }) else { return }
 
+        // Cancel title subscriptions before switching to prevent
+        // the old tab's title from leaking through during the switch.
+        focusedSurfaceCancellables = []
+
         // Save current tab's tree
         saveActiveTaskTree()
 
@@ -1763,6 +1788,12 @@ class BaseTerminalController: NSWindowController,
         sidebarTaskEntries[taskIndex].activeTabId = id
         guard let tree = sidebarTaskEntries[taskIndex].activeSurfaceTree else { return }
         self.surfaceTree = tree
+
+        // Restore per-tab sidebar title if the new tab has one saved
+        if let tabIndex = sidebarTaskEntries[taskIndex].tabs.firstIndex(where: { $0.id == id }),
+           let savedTitle = sidebarTaskEntries[taskIndex].tabs[tabIndex].sidebarTitle {
+            sidebarTaskEntries[taskIndex].title = savedTitle
+        }
 
         // Focus the surface
         if let surface = tree.first {
@@ -2111,18 +2142,9 @@ class BaseTerminalController: NSWindowController,
                 changed = true
             }
 
-            // Read task title from file. For non-active tasks this is the
-            // only source of title updates. For active tasks in Claude state,
-            // also read from file so background title updates propagate even
-            // when a non-Claude horizontal tab is focused.
-            let isActiveTask = sidebarTaskEntries[i].id == activeTaskId
-            let isClaudeState: Bool = {
-                switch sidebarTaskEntries[i].status {
-                case .claudeInProgress, .claudeIdle, .claudeNeedsInput: return true
-                default: return false
-                }
-            }()
-            if !isActiveTask || isClaudeState {
+            // Read task title from file (for non-active tasks, since active
+            // tasks get their title from terminal title changes in titleDidChange).
+            if sidebarTaskEntries[i].id != activeTaskId {
                 let titleFile = "\(statusFile).title"
                 if let title = try? String(contentsOfFile: titleFile, encoding: .utf8)
                     .trimmingCharacters(in: .whitespacesAndNewlines),
